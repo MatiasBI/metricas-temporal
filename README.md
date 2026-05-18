@@ -37,6 +37,36 @@ npm run dev
 
 Los datos procesados se cachean en `.next/cache` y no se versionan en Git.
 
+Tambien se puede apuntar la aplicacion a snapshots JSON ya normalizados,
+generados por el transformador de Avisos SAP:
+
+```powershell
+$env:METRICAS_JSON_DIR='C:\ruta\a\metricas-json'
+npm run dev
+```
+
+La carpeta debe contener:
+
+```text
+metricas-alumbrado-dataset.json
+metricas-paisaje-urbano-dataset.json
+```
+
+Cuando `METRICAS_JSON_DIR` esta configurado, esos JSON tienen prioridad sobre
+el cache local y evitan parsear el CSV crudo en runtime.
+
+Para produccion, los mismos archivos pueden publicarse por URL usando
+`METRICAS_JSON_BASE_URL`:
+
+```powershell
+$env:METRICAS_JSON_BASE_URL='https://drive.google.com/drive/folders/1T-s0u1iASp--kZyaFXR7xIykaOp5UC6q?usp=sharing'
+npm run dev
+```
+
+Si la URL es una carpeta publica de Google Drive, la app busca dentro de esa
+carpeta los archivos `metricas-alumbrado-dataset.json` y
+`metricas-paisaje-urbano-dataset.json` por nombre.
+
 ## Snapshots locales
 
 Si hace falta generar snapshots locales para pruebas:

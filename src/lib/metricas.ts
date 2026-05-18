@@ -143,6 +143,8 @@ const DEFAULT_CSV_PATH =
   "C:\\Users\\Usuario\\Downloads\\avisos crudo 08-05.csv"
 const CSV_PATH = process.env.METRICAS_CSV_PATH || DEFAULT_CSV_PATH
 const CSV_URL = process.env.METRICAS_CSV_URL
+const JSON_SNAPSHOT_DIR = process.env.METRICAS_JSON_DIR
+const JSON_SNAPSHOT_BASE_URL = process.env.METRICAS_JSON_BASE_URL
 const DEFAULT_CSV_DELIMITER = "|"
 const DEFAULT_CSV_FROM_LINE = 1
 const CACHE_FILE_NAMES: Record<MetricasDatasetKey, string> = {
@@ -377,6 +379,30 @@ function getDatasetCachePath(datasetKey: MetricasDatasetKey) {
   )
 }
 
+function getJsonSnapshotPath(datasetKey: MetricasDatasetKey) {
+  return JSON_SNAPSHOT_DIR
+    ? path.join(JSON_SNAPSHOT_DIR, CACHE_FILE_NAMES[datasetKey])
+    : null
+}
+
+function getJsonSnapshotBaseUrl(datasetKey: MetricasDatasetKey) {
+  if (!JSON_SNAPSHOT_BASE_URL) {
+    return null
+  }
+
+  const fileName = CACHE_FILE_NAMES[datasetKey]
+  const baseUrl = JSON_SNAPSHOT_BASE_URL.trim()
+
+  if (isGoogleDriveFolderUrl(baseUrl)) {
+    return resolveGoogleDriveFolderFileUrl(baseUrl, fileName)
+  }
+
+  return new URL(
+    fileName,
+    baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`
+  ).toString()
+}
+
 function hashString(value: string) {
   let hash = 0
 
@@ -490,13 +516,15 @@ function deserializeSnapshot(
   const rows = snapshot.rows.map((row) => ({
     ...row,
     fecha: row.fecha ? new Date(row.fecha) : null,
-    horaIngreso: resolveSyntheticHoraIngreso({
-      fecha: row.fecha ? new Date(row.fecha) : null,
-      comuna: row.comuna,
-      categoria: row.categoria,
-      prestacion: row.prestacion,
-      motivoDenegado: row.motivoDenegado,
-    }),
+    horaIngreso:
+      row.horaIngreso ??
+      resolveSyntheticHoraIngreso({
+        fecha: row.fecha ? new Date(row.fecha) : null,
+        comuna: row.comuna,
+        categoria: row.categoria,
+        prestacion: row.prestacion,
+        motivoDenegado: row.motivoDenegado,
+      }),
     barrio: row.barrio ?? resolveSyntheticBarrio({
       comuna: row.comuna,
       fecha: row.fecha ? new Date(row.fecha) : null,
@@ -551,6 +579,40 @@ async function readPersistedSnapshot(datasetKey: MetricasDatasetKey) {
     const raw = await fs.readFile(datasetCachePath, "utf8")
     return deserializeSnapshot(JSON.parse(raw) as PersistedDatasetSnapshot)
   } catch {
+    return null
+  }
+}
+
+async function readJsonSnapshot(datasetKey: MetricasDatasetKey) {
+  const snapshotPath = getJsonSnapshotPath(datasetKey)
+  if (snapshotPath) {
+    try {
+      const raw = await fs.readFile(snapshotPath, "utf8")
+      return deserializeSnapshot(JSON.parse(raw) as PersistedDatasetSnapshot)
+    } catch {
+      return null
+    }
+  }
+
+  const snapshotUrl = await getJsonSnapshotBaseUrl(datasetKey)
+  if (!snapshotUrl) {
+    return null
+  }
+
+  try {
+    const response = await fetchCsvDownloadResponse(snapshotUrl)
+
+    if (!response.ok) {
+      throw new Error(`No se pudo descargar el JSON ${datasetKey}: ${response.status}`)
+    }
+
+    const raw = await response.text()
+    return deserializeSnapshot(JSON.parse(raw) as PersistedDatasetSnapshot)
+  } catch (error) {
+    console.warn("No se pudo leer el snapshot JSON remoto", {
+      datasetKey,
+      error,
+    })
     return null
   }
 }
@@ -676,6 +738,15 @@ function isGoogleDriveUrl(url: string) {
   return url.includes("drive.google.com")
 }
 
+function isGoogleDriveFolderUrl(url: string) {
+  return /drive\.google\.com\/drive\/folders\//.test(url)
+}
+
+function resolveGoogleDriveFolderId(url: string) {
+  const match = url.match(/drive\.google\.com\/drive\/folders\/([^/?]+)/)
+  return match?.[1] ?? null
+}
+
 function resolveGoogleDriveConfirmUrl(html: string) {
   const actionMatch = html.match(/<form[^>]+id="download-form"[^>]+action="([^"]+)"/)
 
@@ -698,9 +769,79 @@ function decodeHtml(value: string) {
   return value
     .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
+    .replace(/&#34;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
+    .replace(/\\u003d/g, "=")
+    .replace(/\\u0026/g, "&")
+}
+
+const googleDriveFolderFileIdCache = new Map<string, Promise<Record<string, string>>>()
+
+async function resolveGoogleDriveFolderFileUrl(folderUrl: string, fileName: string) {
+  const folderId = resolveGoogleDriveFolderId(folderUrl) ?? folderUrl
+  const fileIds = await readGoogleDriveFolderFileIds(folderUrl)
+  const fileId = fileIds[fileName]
+
+  if (!fileId) {
+    throw new Error(
+      `No se encontro ${fileName} en la carpeta de Google Drive ${folderId}`
+    )
+  }
+
+  return `https://drive.google.com/uc?export=download&id=${fileId}`
+}
+
+async function readGoogleDriveFolderFileIds(folderUrl: string) {
+  const folderId = resolveGoogleDriveFolderId(folderUrl) ?? folderUrl
+  const cached = googleDriveFolderFileIdCache.get(folderId)
+
+  if (cached) {
+    return cached
+  }
+
+  const promise = fetch(folderUrl)
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new Error(`No se pudo leer la carpeta de Google Drive: ${response.status}`)
+      }
+
+      const html = decodeHtml(await response.text())
+      return Object.fromEntries(
+        Object.values(CACHE_FILE_NAMES).map((fileName) => [
+          fileName,
+          findGoogleDriveFolderFileId(html, fileName),
+        ])
+      )
+    })
+    .then((entries) =>
+      Object.fromEntries(
+        Object.entries(entries).filter((entry): entry is [string, string] =>
+          Boolean(entry[1])
+        )
+      )
+    )
+
+  googleDriveFolderFileIdCache.set(folderId, promise)
+
+  return promise
+}
+
+function findGoogleDriveFolderFileId(html: string, fileName: string) {
+  const fileNameIndex = html.indexOf(fileName)
+
+  if (fileNameIndex < 0) {
+    return null
+  }
+
+  const snippet = html.slice(Math.max(0, fileNameIndex - 1200), fileNameIndex)
+  const candidates = Array.from(
+    snippet.matchAll(/"([a-zA-Z0-9_-]{20,})"/g),
+    (match) => match[1]
+  ).filter((candidate) => candidate !== resolveGoogleDriveFolderId(html))
+
+  return candidates.at(-1) ?? null
 }
 
 async function getCsvParserConfig() {
@@ -862,6 +1003,17 @@ async function getCachedDataset(datasetKey: MetricasDatasetKey) {
 
   if (cachedDataset && cachedDataset.expiresAt > now) {
     return cachedDataset.snapshot
+  }
+
+  const jsonSnapshot = await readJsonSnapshot(datasetKey)
+
+  if (jsonSnapshot) {
+    datasetCache.set(datasetKey, {
+      expiresAt: Date.now() + CACHE_TTL_MS,
+      snapshot: jsonSnapshot,
+    })
+
+    return jsonSnapshot
   }
 
   const freshPersistedSnapshot = await readFreshPersistedSnapshot(datasetKey)
