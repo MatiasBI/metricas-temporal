@@ -45,6 +45,8 @@
   display: grid;
   grid-template-columns: 1fr;
   gap: 14px;
+  max-width: 760px;
+  margin-inline: auto;
 }
 
 .quickAccess {
@@ -124,14 +126,12 @@
 
 @media (min-width: 980px) {
   .panelHeader {
-    grid-template-columns: minmax(0, 1fr) minmax(260px, 460px);
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 380px);
     align-items: end;
     gap: 20px;
   }
 
   .buttonGrid {
-    max-width: 920px;
-    margin-inline: auto;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
