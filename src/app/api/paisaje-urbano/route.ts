@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     console.error(error)
 
     return NextResponse.json(
-      { error: "Error leyendo metricas desde el snapshot CSV" },
+      { error: "Error leyendo metricas desde la fuente configurada" },
       { status: 500 }
     )
   }

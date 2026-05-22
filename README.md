@@ -1,23 +1,53 @@
-# metricas-tremor-nuevo-csv
+# metricas-tremor
 
-Prototipo separado de `metricas-tremor` para alimentar los dashboards desde la
-exportacion oficial CSV cruda.
+Dashboards de metricas alimentados por los archivos operativos de Alumbrado y
+Paisaje Urbano.
 
 ## Fuente de datos
 
-La fuente oficial es el CSV crudo de avisos, separado por `|` y sin encabezado.
-La fuente actual esta publicada en Google Drive:
+La fuente local primaria son los libros Excel binarios entregados por cada area:
 
-```powershell
-https://drive.google.com/file/d/1g79QibOjXryN2Nra0_n8x-qPpW3mSUM1/view?usp=sharing
-```
+- Alumbrado: `SSMAN ABRIL-26 (1) ENRIQUECIDO.xlsb`
+- Paisaje Urbano: `SSPURB ABRIL-26 ENRIQUECIDO.xlsb`
 
-Mas adelante, el mismo generador puede consumir un link diario actualizado usando
-`METRICAS_CSV_URL`.
+El dashboard lee la hoja `TOTAL` de cada libro, normaliza `StatUsu` con la regla
+actual de estados, usa `Barrio` y `Hora de ingreso` cuando estan presentes y
+conserva los filtros de prestaciones configurados para cada tablero.
 
 ## Datos en runtime
 
-La aplicacion puede construir los datos desde una URL configurada en runtime:
+Por defecto, en desarrollo local se buscan estos archivos:
+
+```powershell
+C:\Users\Usuario\Downloads\SSMAN ABRIL-26 (1) ENRIQUECIDO.xlsb
+C:\Users\Usuario\Downloads\SSPURB ABRIL-26 ENRIQUECIDO.xlsb
+```
+
+Se pueden mover configurando las rutas antes de iniciar la aplicacion:
+
+```powershell
+$env:METRICAS_ALUMBRADO_XLSB_PATH='C:\ruta\SSMAN ABRIL-26 ENRIQUECIDO.xlsb'
+$env:METRICAS_PAISAJE_URBANO_XLSB_PATH='C:\ruta\SSPURB ABRIL-26 ENRIQUECIDO.xlsb'
+npm run dev
+```
+
+Para Vercel o cualquier entorno sin acceso a esos paths locales, los XLSB
+pueden venir desde links descargables:
+
+```powershell
+$env:METRICAS_ALUMBRADO_XLSB_URL='https://drive.google.com/file/d/.../view?usp=sharing'
+$env:METRICAS_PAISAJE_URBANO_XLSB_URL='https://drive.google.com/file/d/.../view?usp=sharing'
+npm run dev
+```
+
+Los links compartidos de Google Drive se convierten al flujo de descarga antes
+de parsear el libro.
+
+Los snapshots JSON configurados por `METRICAS_JSON_DIR` o
+`METRICAS_JSON_BASE_URL` tienen prioridad sobre los XLSB. Si falta un XLSB, la
+aplicacion conserva el fallback al CSV crudo de avisos.
+
+Para usar el fallback CSV desde una URL:
 
 ```powershell
 $env:METRICAS_CSV_URL='https://drive.google.com/file/d/1g79QibOjXryN2Nra0_n8x-qPpW3mSUM1/view?usp=sharing'
@@ -80,7 +110,7 @@ Git para evitar subir datasets completos al repositorio.
 
 ## Criterio de Alumbrado
 
-Un aviso entra en Alumbrado cuando cumple alguno de estos criterios:
+Un aviso entra en Alumbrado cuando cumple estos criterios:
 
 - `Grupo planificacion` empieza con `AL`, excluyendo `ALU` y `ALD`.
 - La prestacion pertenece al set historico de 8 prestaciones de alumbrado.

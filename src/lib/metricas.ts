@@ -3,6 +3,7 @@ import { createReadStream } from "fs"
 import path from "path"
 import { Readable } from "stream"
 import { parse } from "csv-parse"
+import * as XLSX from "xlsx"
 
 import { BARRIOS_BY_COMUNA } from "./barrios"
 
@@ -141,8 +142,21 @@ const CACHE_TTL_MS = 15 * 60 * 1000
 const DEMO_SNAPSHOT_DIR = path.join(process.cwd(), "src", "data", "metricas-demo")
 const DEFAULT_CSV_PATH =
   "C:\\Users\\Usuario\\Downloads\\avisos crudo 08-05.csv"
+const DEFAULT_ALUMBRADO_XLSB_PATH =
+  "C:\\Users\\Usuario\\Downloads\\SSMAN ABRIL-26 (1) ENRIQUECIDO.xlsb"
+const DEFAULT_PAISAJE_XLSB_PATH =
+  "C:\\Users\\Usuario\\Downloads\\SSPURB ABRIL-26 ENRIQUECIDO.xlsb"
 const CSV_PATH = process.env.METRICAS_CSV_PATH || DEFAULT_CSV_PATH
 const CSV_URL = process.env.METRICAS_CSV_URL
+const XLSB_PATHS: Record<MetricasDatasetKey, string> = {
+  alumbrado: process.env.METRICAS_ALUMBRADO_XLSB_PATH || DEFAULT_ALUMBRADO_XLSB_PATH,
+  "paisaje-urbano":
+    process.env.METRICAS_PAISAJE_URBANO_XLSB_PATH || DEFAULT_PAISAJE_XLSB_PATH,
+}
+const XLSB_URLS: Record<MetricasDatasetKey, string | undefined> = {
+  alumbrado: process.env.METRICAS_ALUMBRADO_XLSB_URL,
+  "paisaje-urbano": process.env.METRICAS_PAISAJE_URBANO_XLSB_URL,
+}
 const JSON_SNAPSHOT_DIR = process.env.METRICAS_JSON_DIR
 const JSON_SNAPSHOT_BASE_URL = process.env.METRICAS_JSON_BASE_URL
 const DEFAULT_CSV_DELIMITER = "|"
@@ -364,6 +378,201 @@ function normalizeCsvRow(row: CsvRow, datasetKey: MetricasDatasetKey): Normalize
   }
 }
 
+type XlsbCellValue = string | number | boolean | Date | null | undefined
+type XlsbRow = XlsbCellValue[]
+
+function normalizeXlsbCell(value: XlsbCellValue) {
+  if (value === null || value === undefined || value instanceof Date) {
+    return ""
+  }
+
+  return normalizeText(String(value))
+}
+
+function normalizeXlsbHeader(value: XlsbCellValue) {
+  return normalizeXlsbCell(value).toLocaleLowerCase("es-AR")
+}
+
+function findXlsbSheet(workbook: XLSX.WorkBook, name: string) {
+  const normalizedName = normalizeText(name).toLocaleLowerCase("es-AR")
+  const sheetName = workbook.SheetNames.find(
+    (candidate) =>
+      normalizeText(candidate).toLocaleLowerCase("es-AR") === normalizedName
+  )
+
+  return sheetName ? workbook.Sheets[sheetName] : null
+}
+
+function getXlsbColumn(headers: Map<string, number>, ...names: string[]) {
+  for (const name of names) {
+    const index = headers.get(name.toLocaleLowerCase("es-AR"))
+    if (index !== undefined) {
+      return index
+    }
+  }
+
+  return null
+}
+
+function getXlsbCell(row: XlsbRow, index: number | null) {
+  return index === null ? undefined : row[index]
+}
+
+function parseXlsbDate(value: XlsbCellValue) {
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) {
+      return null
+    }
+
+    return new Date(
+      Date.UTC(value.getFullYear(), value.getMonth(), value.getDate())
+    )
+  }
+
+  if (typeof value === "number") {
+    const serialDate = XLSX.SSF.parse_date_code(value)
+
+    if (!serialDate) {
+      return null
+    }
+
+    return new Date(
+      Date.UTC(serialDate.y, serialDate.m - 1, serialDate.d)
+    )
+  }
+
+  if (typeof value === "string") {
+    return parseCsvDate(value)
+  }
+
+  return null
+}
+
+function getXlsbDatasetKey(
+  prestacion: string,
+  grupoPlanificacion: string
+): MetricasDatasetKey | null {
+  if (
+    grupoPlanificacion.startsWith("AL") &&
+    !ALUMBRADO_GRUPOS_EXCLUIDOS.has(grupoPlanificacion) &&
+    ALUMBRADO_PRESTACIONES.has(prestacion)
+  ) {
+    return "alumbrado"
+  }
+
+  if (PAISAJE_PRESTACIONES.has(prestacion)) {
+    return "paisaje-urbano"
+  }
+
+  return null
+}
+
+function buildXlsbDatasetSnapshot(
+  fileBuffer: Buffer,
+  filePath: string,
+  datasetKey: MetricasDatasetKey
+) {
+  const workbook = XLSX.read(fileBuffer, {
+    cellDates: true,
+    type: "buffer",
+  })
+  const totalSheet = findXlsbSheet(workbook, "TOTAL")
+
+  if (!totalSheet) {
+    throw new Error(`No se encontro la hoja TOTAL en ${filePath}`)
+  }
+
+  const [headerRow = [], ...rows] = XLSX.utils.sheet_to_json<XlsbRow>(
+    totalSheet,
+    {
+      header: 1,
+      raw: true,
+      defval: "",
+    }
+  )
+  const headers = new Map(
+    headerRow.map((header, index) => [normalizeXlsbHeader(header), index])
+  )
+  const columns = {
+    aviso: getXlsbColumn(headers, "aviso"),
+    fecha: getXlsbColumn(headers, "fecha de inicio", "fecha de ingreso"),
+    comuna: getXlsbColumn(headers, "are", "área", "area"),
+    prestacion: getXlsbColumn(headers, "prestación", "prestaciones"),
+    grupoPlanificacion: getXlsbColumn(headers, "gp"),
+    statusUsuario: getXlsbColumn(headers, "statusu", "status usuario"),
+    area: getXlsbColumn(headers, "area", "área"),
+    barrio: getXlsbColumn(headers, "barrio"),
+    horaIngreso: getXlsbColumn(headers, "hora de ingreso"),
+  }
+  const requiredColumns = [
+    columns.aviso,
+    columns.fecha,
+    columns.comuna,
+    columns.prestacion,
+    columns.grupoPlanificacion,
+    columns.statusUsuario,
+  ]
+
+  if (requiredColumns.some((column) => column === null)) {
+    throw new Error(`La hoja TOTAL de ${filePath} no tiene las columnas requeridas`)
+  }
+
+  const normalizedRows: NormalizedRow[] = []
+
+  for (const row of rows) {
+    const aviso = normalizeXlsbCell(getXlsbCell(row, columns.aviso))
+    const fecha = parseXlsbDate(getXlsbCell(row, columns.fecha))
+    const comuna = normalizeComuna(
+      normalizeXlsbCell(getXlsbCell(row, columns.comuna))
+    )
+    const prestacion = normalizeXlsbCell(
+      getXlsbCell(row, columns.prestacion)
+    )
+    const grupoPlanificacion = normalizeXlsbCell(
+      getXlsbCell(row, columns.grupoPlanificacion)
+    ).toUpperCase()
+    const statusUsuario = normalizeXlsbCell(
+      getXlsbCell(row, columns.statusUsuario)
+    ).toUpperCase()
+    const estado = normalizeEstado(statusUsuario)
+
+    if (!aviso || !fecha || !comuna || !prestacion || !estado) {
+      continue
+    }
+
+    if (getXlsbDatasetKey(prestacion, grupoPlanificacion) !== datasetKey) {
+      continue
+    }
+
+    const area = normalizeXlsbCell(getXlsbCell(row, columns.area))
+    const barrio = normalizeXlsbCell(getXlsbCell(row, columns.barrio))
+    const horaIngreso = parseCsvTime(
+      normalizeXlsbCell(getXlsbCell(row, columns.horaIngreso))
+    )
+
+    normalizedRows.push({
+      aviso,
+      fecha,
+      horaIngreso,
+      comuna,
+      barrio: barrio || null,
+      categoria:
+        datasetKey === "alumbrado"
+          ? prestacion
+          : area || prestacion,
+      prestacion,
+      grupoPlanificacion: grupoPlanificacion || null,
+      statusUsuario: statusUsuario || null,
+      motivoDenegado:
+        estado === "denegados" ? normalizeMotivoDenegado(statusUsuario) : null,
+      estado,
+      ultMes: "",
+    })
+  }
+
+  return buildDatasetSnapshot(normalizedRows)
+}
+
 function formatearUltimaActualizacion(fecha: Date | null, ultMes?: string) {
   if (ultMes?.trim()) return ultMes.trim()
   if (!fecha) return "Sin datos"
@@ -517,21 +726,25 @@ function deserializeSnapshot(
     ...row,
     fecha: row.fecha ? new Date(row.fecha) : null,
     horaIngreso:
-      row.horaIngreso ??
-      resolveSyntheticHoraIngreso({
-        fecha: row.fecha ? new Date(row.fecha) : null,
-        comuna: row.comuna,
-        categoria: row.categoria,
-        prestacion: row.prestacion,
-        motivoDenegado: row.motivoDenegado,
-      }),
-    barrio: row.barrio ?? resolveSyntheticBarrio({
-      comuna: row.comuna,
-      fecha: row.fecha ? new Date(row.fecha) : null,
-      categoria: row.categoria,
-      prestacion: row.prestacion,
-      motivoDenegado: row.motivoDenegado,
-    }),
+      row.horaIngreso === undefined
+        ? resolveSyntheticHoraIngreso({
+            fecha: row.fecha ? new Date(row.fecha) : null,
+            comuna: row.comuna,
+            categoria: row.categoria,
+            prestacion: row.prestacion,
+            motivoDenegado: row.motivoDenegado,
+          })
+        : row.horaIngreso,
+    barrio:
+      row.barrio === undefined
+        ? resolveSyntheticBarrio({
+            comuna: row.comuna,
+            fecha: row.fecha ? new Date(row.fecha) : null,
+            categoria: row.categoria,
+            prestacion: row.prestacion,
+            motivoDenegado: row.motivoDenegado,
+          })
+        : row.barrio,
   }))
 
   return {
@@ -940,6 +1153,50 @@ async function readCsvSnapshot(datasetKey: MetricasDatasetKey) {
   return snapshots[datasetKey]
 }
 
+async function readXlsbSnapshot(datasetKey: MetricasDatasetKey) {
+  const xlsbUrl = XLSB_URLS[datasetKey]
+  const xlsbPath = XLSB_PATHS[datasetKey]
+  let fileBuffer: Buffer
+  let sourceLabel = xlsbPath
+
+  if (xlsbUrl) {
+    try {
+      const response = await fetchCsvDownloadResponse(xlsbUrl)
+
+      if (!response.ok) {
+        throw new Error(`No se pudo descargar el XLSB ${datasetKey}: ${response.status}`)
+      }
+
+      const contentType = response.headers.get("content-type") ?? ""
+      if (contentType.includes("text/html")) {
+        throw new Error(
+          `La URL XLSB de ${datasetKey} devolvio HTML. Usa un link descargable.`
+        )
+      }
+
+      fileBuffer = Buffer.from(await response.arrayBuffer())
+      sourceLabel = xlsbUrl
+    } catch (error) {
+      console.warn("No se pudo leer el XLSB remoto", {
+        datasetKey,
+        error,
+      })
+      return null
+    }
+  } else {
+    try {
+      fileBuffer = await fs.readFile(xlsbPath)
+    } catch {
+      return null
+    }
+  }
+
+  const snapshot = buildXlsbDatasetSnapshot(fileBuffer, sourceLabel, datasetKey)
+  await persistSnapshotSafely(datasetKey, snapshot)
+
+  return snapshot
+}
+
 export function crearResumenVacio(
   filtros: MetricasPayload["filtros"] = {
     years: [],
@@ -1016,6 +1273,17 @@ async function getCachedDataset(datasetKey: MetricasDatasetKey) {
     return jsonSnapshot
   }
 
+  const xlsbSnapshot = await readXlsbSnapshot(datasetKey)
+
+  if (xlsbSnapshot) {
+    datasetCache.set(datasetKey, {
+      expiresAt: Date.now() + CACHE_TTL_MS,
+      snapshot: xlsbSnapshot,
+    })
+
+    return xlsbSnapshot
+  }
+
   const freshPersistedSnapshot = await readFreshPersistedSnapshot(datasetKey)
 
   if (freshPersistedSnapshot) {
@@ -1061,7 +1329,7 @@ async function getCachedDataset(datasetKey: MetricasDatasetKey) {
   }
 
   throw new Error(
-    `No hay datos disponibles para ${datasetKey}. Configura METRICAS_CSV_URL o ejecuta npm run generate-csv-snapshots.`
+    `No hay datos disponibles para ${datasetKey}. Configura un XLSB, METRICAS_CSV_URL o ejecuta npm run generate-csv-snapshots.`
   )
 }
 
