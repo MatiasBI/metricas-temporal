@@ -3,15 +3,25 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
-import { dashboardLinks } from "../../lib/dashboardLinks"
+import { dashboardLinks, type DashboardLink } from "../../lib/dashboardLinks"
 
 import styles from "./DashboardSelector.module.css"
 
 type Props = {
   compact?: boolean
+  links?: DashboardLink[]
+  eyebrow?: string
+  title?: string
+  description?: string
 }
 
-export default function DashboardSelector({ compact = false }: Props) {
+export default function DashboardSelector({
+  compact = false,
+  links = dashboardLinks,
+  eyebrow = "Tableros Ejecutivos",
+  title = "Seguimiento estrategico",
+  description = "Selecciona uno de los accesos para abrir el dashboard correspondiente.",
+}: Props) {
   const pathname = usePathname()
 
   return (
@@ -20,16 +30,14 @@ export default function DashboardSelector({ compact = false }: Props) {
     >
       <div className={styles.panelHeader}>
         <div>
-          <p className={styles.panelEyebrow}>Tableros Ejecutivos</p>
-          <h2 className={styles.panelTitle}>Seguimiento estrategico</h2>
+          <p className={styles.panelEyebrow}>{eyebrow}</p>
+          <h2 className={styles.panelTitle}>{title}</h2>
         </div>
-        <p className={styles.panelDescription}>
-          Selecciona uno de los accesos para abrir el dashboard correspondiente.
-        </p>
+        <p className={styles.panelDescription}>{description}</p>
       </div>
 
       <div className={styles.buttonGrid}>
-        {dashboardLinks.map(({ href, title, subtitle, Icon }) => {
+        {links.map(({ href, title, subtitle, Icon }) => {
           const isActive = pathname === href
 
           return (
@@ -44,7 +52,9 @@ export default function DashboardSelector({ compact = false }: Props) {
                 <Icon fontSize="inherit" />
               </span>
               <span className={styles.quickLabel}>{title}</span>
-              <span className={styles.quickSubtitle}>{subtitle}</span>
+              {subtitle ? (
+                <span className={styles.quickSubtitle}>{subtitle}</span>
+              ) : null}
             </Link>
           )
         })}

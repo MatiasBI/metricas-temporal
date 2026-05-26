@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import InsightsOutlinedIcon from "@mui/icons-material/InsightsOutlined"
 
 import DashboardSelector from "./DashboardSelector"
+import { subsecretariaLinks } from "../../lib/dashboardLinks"
 import styles from "./metricas-home.module.css"
 
 export const metadata: Metadata = {
@@ -16,10 +17,10 @@ export default function MetricasPage() {
         <div className={styles.content}>
           <header className={styles.header}>
             <div>
-              <p className={styles.brand}>MEEP</p>
-              <h2 className={styles.title}>Tableros ejecutivos</h2>
+              <p className={styles.brand}>Centro de control</p>
+              <h2 className={styles.title}>Ministerio de Espacio Publico</h2>
               <p className={styles.lead}>
-                Accesos directos a diferentes dashboards de seguimiento.
+                Tableros ejecutivos por subsecretaria.
               </p>
             </div>
 
@@ -36,7 +37,12 @@ export default function MetricasPage() {
             </div>
           </header>
 
-          <DashboardSelector />
+          <DashboardSelector
+            links={subsecretariaLinks}
+            eyebrow="Subsecretarias"
+            title="Seguimiento estrategico"
+            description="Selecciona una subsecretaria para abrir sus tableros disponibles."
+          />
         </div>
       </div>
     </main>

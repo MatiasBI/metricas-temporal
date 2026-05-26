@@ -1,4 +1,5 @@
 import { getMetricasData, warmMetricasCache } from "../../../lib/metricas"
+import { dashboardLinks } from "../../../lib/dashboardLinks"
 import MetricasScreen from "../screen"
 
 export const dynamic = "force-dynamic"
@@ -22,8 +23,11 @@ export default async function PaisajeUrbanoPage() {
       data={data}
       apiPath="/api/paisaje-urbano"
       title="Ministerio de Espacio Publico"
-      subtitle="Subsecretaria de Mantenimiento - Direccion General de Paisaje Urbano"
+      subtitle="Subsecretaria de Paisaje Urbano - Direccion General de Conservacion de Paisaje Urbano"
       externalLabel="Ver mas en Power BI"
+      dashboardSelectorLinks={dashboardLinks.filter(
+        (link) => link.href === "/metricas/paisaje-urbano"
+      )}
     />
   )
 }

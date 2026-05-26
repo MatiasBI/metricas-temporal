@@ -22,6 +22,7 @@ import formatComuna from "./components/formatComuna"
 import formatPrestacion from "./components/formatPrestacion"
 import DashboardSelector from "./DashboardSelector"
 import { getBarriosForComuna } from "../../lib/barrios"
+import { dashboardLinks, type DashboardLink } from "../../lib/dashboardLinks"
 
 interface MetricasData {
   resumen: {
@@ -98,6 +99,7 @@ interface Props {
   subtitle?: string
   externalUrl?: string
   externalLabel?: string
+  dashboardSelectorLinks?: DashboardLink[]
 }
 
 type FilterSelections = {
@@ -208,6 +210,7 @@ export default function MetricasScreen({
   subtitle = "Subsecretaria de Mantenimiento - Direccion General de Alumbrado",
   externalUrl = DEFAULT_EXTERNAL_URL,
   externalLabel = "Ver mas en Power BI",
+  dashboardSelectorLinks = dashboardLinks,
 }: Props) {
   const [dashboardData, setDashboardData] = useState<MetricasData | null>(data)
   const [barrioReferenceTotals, setBarrioReferenceTotals] = useState<
@@ -560,7 +563,13 @@ export default function MetricasScreen({
           </header>
 
           <div className="metricas-body">
-            <DashboardSelector compact />
+            <DashboardSelector
+              compact
+              links={dashboardSelectorLinks}
+              eyebrow="Direcciones Generales"
+              title="Tableros disponibles"
+              description="Selecciona uno de los accesos disponibles para esta subsecretaria."
+            />
 
             {hasActiveFilter ? (
               <div className="metricas-filter-strip">

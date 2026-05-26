@@ -1,4 +1,5 @@
 import { getMetricasData, warmMetricasCache } from "../../../lib/metricas"
+import { dashboardLinks } from "../../../lib/dashboardLinks"
 import MetricasScreen from "../screen"
 
 export const dynamic = "force-dynamic"
@@ -16,5 +17,13 @@ async function getData() {
 
 export default async function AlumbradoPage() {
   const data = await getData()
-  return <MetricasScreen data={data} apiPath="/api/metricas" />
+  return (
+    <MetricasScreen
+      data={data}
+      apiPath="/api/metricas"
+      dashboardSelectorLinks={dashboardLinks.filter(
+        (link) => link.href === "/metricas/alumbrado"
+      )}
+    />
+  )
 }

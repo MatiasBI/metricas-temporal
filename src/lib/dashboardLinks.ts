@@ -22,9 +22,28 @@ export const dashboardLinks: DashboardLink[] = [
   {
     href: "/metricas/paisaje-urbano",
     title: "Paisaje Urbano",
-    subtitle: "Direccion General de Paisaje Urbano",
+    subtitle: "Direccion General de Conservacion de Paisaje Urbano",
     description:
       "Lectura ejecutiva de patrimonio, espacios verdes, mobiliario y estado de resolucion.",
+    Icon: ParkOutlinedIcon,
+  },
+]
+
+export const subsecretariaLinks: DashboardLink[] = [
+  {
+    href: "/metricas/alumbrado",
+    title: "Subsecretaria de Mantenimiento",
+    subtitle: "",
+    description:
+      "Acceso a los tableros de seguimiento operativo de mantenimiento.",
+    Icon: LightbulbOutlinedIcon,
+  },
+  {
+    href: "/metricas/paisaje-urbano",
+    title: "Subsecretaria de Paisaje Urbano",
+    subtitle: "",
+    description:
+      "Acceso a los tableros de seguimiento de paisaje urbano.",
     Icon: ParkOutlinedIcon,
   },
 ]
