@@ -115,6 +115,11 @@ export type MetricasPayload = {
     hora: string
     cantidad: number
     porcentaje: number
+    top_prestaciones: Array<{
+      prestacion: string
+      cantidad: number
+      porcentaje: number
+    }>
   }>
   barrio_totales: Record<string, number>
   flujo_bajas: {
@@ -1469,6 +1474,7 @@ export async function getMetricasData(
   const pendientesPrestacionMap: Record<string, number> = {}
   const porBarrioMap: Record<string, number> = {}
   const porHoraMap: Record<string, number> = {}
+  const prestacionesPorHoraMap: Record<string, Record<string, number>> = {}
 
   let total = 0
   let resueltos = 0
@@ -1521,6 +1527,11 @@ export async function getMetricasData(
 
     if (horaBucket) {
       porHoraMap[horaBucket] = (porHoraMap[horaBucket] ?? 0) + 1
+      if (prestacion) {
+        prestacionesPorHoraMap[horaBucket] ??= {}
+        prestacionesPorHoraMap[horaBucket][prestacion] =
+          (prestacionesPorHoraMap[horaBucket][prestacion] ?? 0) + 1
+      }
     }
 
     if (comuna) {
@@ -1626,6 +1637,16 @@ export async function getMetricasData(
         hora,
         cantidad,
         porcentaje: total ? +((cantidad / total) * 100).toFixed(1) : 0,
+        top_prestaciones: Object.entries(prestacionesPorHoraMap[hora] ?? {})
+          .map(([prestacion, prestacionCantidad]) => ({
+            prestacion,
+            cantidad: prestacionCantidad,
+            porcentaje: cantidad
+              ? +((prestacionCantidad / cantidad) * 100).toFixed(1)
+              : 0,
+          }))
+          .sort((a, b) => b.cantidad - a.cantidad)
+          .slice(0, 2),
       }))
       .sort((a, b) => a.hora.localeCompare(b.hora)),
     barrio_totales: porBarrioMap,

@@ -2,12 +2,14 @@
 
 import "./metricas.css"
 import dynamic from "next/dynamic"
+import Link from "next/link"
 import { useEffect, useMemo, useRef, useState } from "react"
 import type { SelectChangeEvent } from "@mui/material"
 import InsightsOutlinedIcon from "@mui/icons-material/InsightsOutlined"
 import ArrowOutwardRoundedIcon from "@mui/icons-material/ArrowOutwardRounded"
 import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined"
 import DownloadRoundedIcon from "@mui/icons-material/DownloadRounded"
+import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded"
 
 import KPICards from "./components/KPICards"
 import ComunasHeatmap from "./components/ComunasHeatmap"
@@ -73,6 +75,11 @@ interface MetricasData {
     hora: string
     cantidad: number
     porcentaje: number
+    top_prestaciones?: Array<{
+      prestacion: string
+      cantidad: number
+      porcentaje: number
+    }>
   }>
   barrio_totales: Record<string, number>
   flujo_bajas: {
@@ -544,6 +551,10 @@ export default function MetricasScreen({
         <div className="metricas-content">
           <header className="metricas-topbar">
             <div className="metricas-topbar-copy">
+              <Link href="/metricas" className="metricas-home-link">
+                <ArrowBackRoundedIcon fontSize="small" />
+                <span>Volver al inicio</span>
+              </Link>
               <p className="metricas-eyebrow">Centro de control</p>
               <h2 className="metricas-title">{title}</h2>
               <p className="metricas-subtitle">{subtitle}</p>
@@ -646,10 +657,6 @@ export default function MetricasScreen({
                 </div>
 
                 <div className="metricas-surface-card">
-                  <IngresosPorHoraChart items={dashboardData.por_hora} />
-                </div>
-
-                <div className="metricas-surface-card">
                   <TopPendientesPrestacionChart
                     items={dashboardData.top_pendientes_prestacion}
                   />
@@ -659,6 +666,10 @@ export default function MetricasScreen({
               <div className="order-2 metricas-surface-card xl:order-1 xl:col-span-3">
                 <MotivosBajaChart items={dashboardData.motivos_baja} />
               </div>
+            </div>
+
+            <div className="metricas-surface-card">
+              <IngresosPorHoraChart items={dashboardData.por_hora} />
             </div>
           </div>
 

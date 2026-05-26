@@ -33,6 +33,38 @@
   text-transform: uppercase;
 }
 
+.metricas-home-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border: 1px solid #bfe4fb;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #1775a2;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1;
+  text-decoration: none;
+  box-shadow: 0 8px 18px rgba(72, 182, 244, 0.12);
+  transition:
+    transform 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.metricas-home-link:hover {
+  transform: translateY(-1px);
+  background: #ffffff;
+  box-shadow: 0 12px 22px rgba(72, 182, 244, 0.18);
+}
+
+.metricas-home-link svg {
+  font-size: 1rem;
+}
+
 .metricas-title {
   margin: 0;
   color: #273847;
