@@ -12,6 +12,7 @@
     "git-branch-vv": "git branch -vv",
     "git-branch-d": "git branch -d",
     "process-metricas": "tsx scripts/process-metricas.ts",
+    "etl-metricas": "npx tsx scripts/etl-metricas.ts",
     "generate-demo-snapshots": "npx tsx scripts/generate-demo-snapshots.ts",
     "generate-csv-snapshots": "npx tsx scripts/generate-csv-snapshots.ts"
   },

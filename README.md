@@ -1,118 +1,115 @@
 # metricas-tremor
 
-Dashboards de metricas alimentados por los archivos operativos de Alumbrado y
-Paisaje Urbano.
+Dashboards de métricas de Alumbrado y Paisaje Urbano. Una ETL diaria filtra el
+CSV crudo de Avisos SAP y publica snapshots comprimidos que consume la app.
+
+> La automatización productiva pendiente está especificada paso a paso en
+> [AUTOMATIZACION_ETL.md](./AUTOMATIZACION_ETL.md). Ese archivo es el punto de
+> entrada para cualquier persona o agente que retome el despliegue.
 
 ## Fuente de datos
 
-La fuente local primaria son los libros Excel binarios entregados por cada area:
+La aplicación espera un archivo separado por `|`, codificado como
+Windows-1252/Latin-1, con 17 columnas y sin encabezado. Las líneas informativas
+del inicio se ignoran automáticamente porque no tienen esa cantidad de
+columnas.
 
-- Alumbrado: `SSMAN ABRIL-26 (1) ENRIQUECIDO.xlsb`
-- Paisaje Urbano: `SSPURB ABRIL-26 ENRIQUECIDO.xlsb`
+Los campos utilizados son:
 
-El dashboard lee la hoja `TOTAL` de cada libro, normaliza `StatUsu` con la regla
-actual de estados, usa `Barrio` y `Hora de ingreso` cuando estan presentes y
-conserva los filtros de prestaciones configurados para cada tablero.
+| Índice | Campo |
+|---:|---|
+| 0 | Aviso |
+| 2 | Fecha de ingreso (`yyyyMMdd`) |
+| 3 | Hora de ingreso (`HHmmss`) |
+| 4 | Estado general |
+| 5 | Grupo de planificación |
+| 6 | Barrio |
+| 12 | Comuna |
+| 13 | Prestación |
 
-## Datos en runtime
+El estado general se aplica a ambos tableros. `REOK` y `TERC` son resueltos;
+`OPER`, `INIC`, `PLAN`, `VERI`, `PROG` y `SERV` son pendientes; `IM01` a
+`IM05` y `CANC` son denegados.
 
-Por defecto, en desarrollo local se buscan estos archivos:
+Un único recorrido del CSV genera simultáneamente los datasets de Alumbrado y
+Paisaje Urbano utilizando las prestaciones y grupos definidos en
+`src/lib/metricas-csv.ts`.
+
+Como el CSV crudo no contiene el campo enriquecido `Tipo`, la prestación se
+usa como categoría operativa en ambos tableros.
+
+## ETL diaria
+
+La ETL lee automáticamente `.env.local` y se ejecuta con:
 
 ```powershell
-C:\Users\Usuario\Downloads\SSMAN ABRIL-26 (1) ENRIQUECIDO.xlsb
-C:\Users\Usuario\Downloads\SSPURB ABRIL-26 ENRIQUECIDO.xlsb
+npm run etl-metricas
 ```
 
-Se pueden mover configurando las rutas antes de iniciar la aplicacion:
+Genera dentro de `METRICAS_ETL_OUT_DIR`:
+
+- un snapshot `.json.gz` versionado para Alumbrado;
+- un snapshot `.json.gz` versionado para Paisaje Urbano;
+- `metricas-manifest.json`, con conteos, fechas, tamaños y checksums SHA-256.
+
+Los datasets se escriben antes que el manifest. De este modo, una ejecución
+fallida conserva la versión anterior y el consumidor nunca apunta a archivos
+incompletos. También se validan umbrales mínimos, configurables mediante
+`METRICAS_ETL_MIN_ALUMBRADO_ROWS` y
+`METRICAS_ETL_MIN_PAISAJE_URBANO_ROWS`.
+
+## Desarrollo local
+
+Configura la ruta del archivo antes de iniciar la aplicación:
 
 ```powershell
-$env:METRICAS_ALUMBRADO_XLSB_PATH='C:\ruta\SSMAN ABRIL-26 ENRIQUECIDO.xlsb'
-$env:METRICAS_PAISAJE_URBANO_XLSB_PATH='C:\ruta\SSPURB ABRIL-26 ENRIQUECIDO.xlsb'
+$env:METRICAS_CSV_PATH='D:\Descargas\archivo diario.csv'
 npm run dev
 ```
 
-Para Vercel o cualquier entorno sin acceso a esos paths locales, los XLSB
-pueden venir desde links descargables:
+La configuración recomendada usa el CSV como entrada de la ETL y su directorio
+de salida como fuente primaria de la aplicación:
+
+```env
+METRICAS_CSV_PATH=D:/Descargas/archivo diario.csv
+METRICAS_ETL_OUT_DIR=data/metricas-etl
+METRICAS_JSON_DIR=C:/ruta/al/proyecto/data/metricas-etl
+```
+
+## Fuente remota
+
+La tarea ETL consume la URL descargable del CSV:
 
 ```powershell
-$env:METRICAS_ALUMBRADO_XLSB_URL='https://drive.google.com/file/d/.../view?usp=sharing'
-$env:METRICAS_PAISAJE_URBANO_XLSB_URL='https://drive.google.com/file/d/.../view?usp=sharing'
-npm run dev
+$env:METRICAS_CSV_URL='https://ejemplo.gob.ar/datos/avisos.csv'
+npm run etl-metricas
 ```
 
-Los links compartidos de Google Drive se convierten al flujo de descarga antes
-de parsear el libro.
+También se admiten enlaces compartidos de archivo de Google Drive. La URL no
+debe devolver una página HTML ni requerir una sesión interactiva.
 
-Los snapshots JSON configurados por `METRICAS_JSON_DIR` o
-`METRICAS_JSON_BASE_URL` tienen prioridad sobre los XLSB. Si falta un XLSB, la
-aplicacion conserva el fallback al CSV crudo de avisos.
+Después se publican el manifest y los `.json.gz` en almacenamiento estático o
+un CDN. La aplicación consume esa carpeta con:
 
-Para usar el fallback CSV desde una URL:
-
-```powershell
-$env:METRICAS_CSV_URL='https://drive.google.com/file/d/1g79QibOjXryN2Nra0_n8x-qPpW3mSUM1/view?usp=sharing'
-npm run dev
+```env
+METRICAS_JSON_BASE_URL=https://datos.ejemplo.gob.ar/metricas/
 ```
 
-La URL puede ser un link compartido de Google Drive o un link directo al CSV.
-Si el link abre una pagina intermedia no soportada, como una landing de
-FromSmash, hay que reemplazarlo por el link directo al archivo.
-
-Para desarrollo local tambien puede usarse:
-
-```powershell
-$env:METRICAS_CSV_PATH='C:\ruta\al\archivo-crudo.csv'
-npm run dev
-```
-
-Los datos procesados se cachean en `.next/cache` y no se versionan en Git.
-
-Tambien se puede apuntar la aplicacion a snapshots JSON ya normalizados,
-generados por el transformador de Avisos SAP:
-
-```powershell
-$env:METRICAS_JSON_DIR='C:\ruta\a\metricas-json'
-npm run dev
-```
-
-La carpeta debe contener:
-
-```text
-metricas-alumbrado-dataset.json
-metricas-paisaje-urbano-dataset.json
-```
-
-Cuando `METRICAS_JSON_DIR` esta configurado, esos JSON tienen prioridad sobre
-el cache local y evitan parsear el CSV crudo en runtime.
-
-Para produccion, los mismos archivos pueden publicarse por URL usando
-`METRICAS_JSON_BASE_URL`:
-
-```powershell
-$env:METRICAS_JSON_BASE_URL='https://drive.google.com/drive/folders/1T-s0u1iASp--kZyaFXR7xIykaOp5UC6q?usp=sharing'
-npm run dev
-```
-
-Si la URL es una carpeta publica de Google Drive, la app busca dentro de esa
-carpeta los archivos `metricas-alumbrado-dataset.json` y
-`metricas-paisaje-urbano-dataset.json` por nombre.
+Si el manifest o un checksum falla, la aplicación conserva el snapshot
+persistido anterior. El CSV crudo queda como fallback y no participa de la
+carga normal del dashboard.
 
 ## Snapshots locales
 
-Si hace falta generar snapshots locales para pruebas:
+Para generar snapshots de prueba con las mismas reglas del runtime:
 
 ```powershell
+$env:METRICAS_CSV_PATH='D:\Descargas\archivo diario.csv'
 npm run generate-csv-snapshots
 ```
 
-Los archivos generados en `src/data/metricas-demo/*.json` quedan ignorados por
-Git para evitar subir datasets completos al repositorio.
+Los archivos se escriben en `src/data/metricas-demo` y permanecen ignorados
+por Git.
 
-## Criterio de Alumbrado
-
-Un aviso entra en Alumbrado cuando cumple estos criterios:
-
-- `Grupo planificacion` empieza con `AL`, excluyendo `ALU` y `ALD`.
-- La prestacion pertenece al set historico de 8 prestaciones de alumbrado.
-
-`Status de usuario` se guarda como motivo de baja para registros denegados.
+Los snapshots JSON antiguos sin manifest siguen admitidos como compatibilidad
+de fallback.

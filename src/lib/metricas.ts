@@ -1,11 +1,21 @@
+import { createHash } from "crypto"
 import { promises as fs } from "fs"
 import { createReadStream } from "fs"
 import path from "path"
 import { Readable } from "stream"
+import { promisify } from "util"
+import { gunzip as gunzipCallback } from "zlib"
 import { parse } from "csv-parse"
 import * as XLSX from "xlsx"
 
 import { BARRIOS_BY_COMUNA } from "./barrios"
+import {
+  METRICAS_CSV_COLUMN_COUNT,
+  parseMetricasCsvRow,
+  type MetricasDatasetKey,
+} from "./metricas-csv"
+
+export type { MetricasDatasetKey } from "./metricas-csv"
 
 type EstadoClave = "resueltos" | "pendientes" | "denegados"
 
@@ -139,24 +149,30 @@ export type MetricasPayload = {
   }
 }
 
-export type MetricasDatasetKey =
-  | "alumbrado"
-  | "paisaje-urbano"
-
 const CACHE_TTL_MS = 15 * 60 * 1000
+const CSV_REFRESH_TTL_MS = Number(
+  process.env.METRICAS_CSV_REFRESH_TTL_MS || 24 * 60 * 60 * 1000
+)
 const DEMO_SNAPSHOT_DIR = path.join(process.cwd(), "src", "data", "metricas-demo")
-const DEFAULT_CSV_PATH =
-  "C:\\Users\\Usuario\\Downloads\\avisos crudo 08-05.csv"
-const DEFAULT_ALUMBRADO_XLSB_PATH =
-  "C:\\Users\\Usuario\\Downloads\\SSMAN ABRIL-26 (1) ENRIQUECIDO.xlsb"
-const DEFAULT_PAISAJE_XLSB_PATH =
-  "C:\\Users\\Usuario\\Downloads\\SSPURB ABRIL-26 ENRIQUECIDO.xlsb"
-const CSV_PATH = process.env.METRICAS_CSV_PATH || DEFAULT_CSV_PATH
+const CSV_PATH = process.env.METRICAS_CSV_PATH
 const CSV_URL = process.env.METRICAS_CSV_URL
 const XLSB_PATHS: Record<MetricasDatasetKey, string> = {
-  alumbrado: process.env.METRICAS_ALUMBRADO_XLSB_PATH || DEFAULT_ALUMBRADO_XLSB_PATH,
-  "paisaje-urbano":
-    process.env.METRICAS_PAISAJE_URBANO_XLSB_PATH || DEFAULT_PAISAJE_XLSB_PATH,
+  alumbrado: process.env.METRICAS_ALUMBRADO_XLSB_PATH || "",
+  "paisaje-urbano": process.env.METRICAS_PAISAJE_URBANO_XLSB_PATH || "",
+}
+
+type EtlManifest = {
+  schemaVersion: number
+  generatedAt: string
+  datasets: Record<
+    MetricasDatasetKey,
+    {
+      file: string
+      rows: number
+      bytes: number
+      sha256: string
+    }
+  >
 }
 const XLSB_URLS: Record<MetricasDatasetKey, string | undefined> = {
   alumbrado: process.env.METRICAS_ALUMBRADO_XLSB_URL,
@@ -164,8 +180,9 @@ const XLSB_URLS: Record<MetricasDatasetKey, string | undefined> = {
 }
 const JSON_SNAPSHOT_DIR = process.env.METRICAS_JSON_DIR
 const JSON_SNAPSHOT_BASE_URL = process.env.METRICAS_JSON_BASE_URL
+const ETL_MANIFEST_FILE_NAME = "metricas-manifest.json"
+const gunzip = promisify(gunzipCallback)
 const DEFAULT_CSV_DELIMITER = "|"
-const DEFAULT_CSV_FROM_LINE = 1
 const CACHE_FILE_NAMES: Record<MetricasDatasetKey, string> = {
   alumbrado: "metricas-alumbrado-dataset.json",
   "paisaje-urbano": "metricas-paisaje-urbano-dataset.json",
@@ -801,15 +818,111 @@ async function readPersistedSnapshot(datasetKey: MetricasDatasetKey) {
   }
 }
 
+function validateEtlDatasetFileName(fileName: string) {
+  if (path.basename(fileName) !== fileName || !fileName.endsWith(".json.gz")) {
+    throw new Error(`Nombre de snapshot ETL invalido: ${fileName}`)
+  }
+}
+
+async function deserializeSnapshotBuffer(
+  input: Buffer,
+  expected?: { bytes: number; sha256: string }
+) {
+  const isGzip = input.length >= 2 && input[0] === 0x1f && input[1] === 0x8b
+
+  if (isGzip && expected) {
+    if (input.length !== expected.bytes) {
+      throw new Error("El tamaño del snapshot ETL no coincide con el manifest")
+    }
+    const digest = createHash("sha256").update(input).digest("hex")
+    if (digest !== expected.sha256) {
+      throw new Error("El checksum del snapshot ETL no coincide con el manifest")
+    }
+  }
+
+  const raw = isGzip ? (await gunzip(input)).toString("utf8") : input.toString("utf8")
+  return deserializeSnapshot(JSON.parse(raw) as PersistedDatasetSnapshot)
+}
+
+async function readLocalEtlSnapshot(datasetKey: MetricasDatasetKey) {
+  if (!JSON_SNAPSHOT_DIR) return null
+
+  const manifest = JSON.parse(
+    await fs.readFile(path.join(JSON_SNAPSHOT_DIR, ETL_MANIFEST_FILE_NAME), "utf8")
+  ) as EtlManifest
+  if (manifest.schemaVersion !== 1) {
+    throw new Error(`Version de manifest ETL no soportada: ${manifest.schemaVersion}`)
+  }
+
+  const entry = manifest.datasets[datasetKey]
+  if (!entry) throw new Error(`El manifest ETL no contiene ${datasetKey}`)
+  validateEtlDatasetFileName(entry.file)
+  const input = await fs.readFile(path.join(JSON_SNAPSHOT_DIR, entry.file))
+  return deserializeSnapshotBuffer(input, entry)
+}
+
+function getRemoteEtlFileUrl(fileName: string) {
+  if (!JSON_SNAPSHOT_BASE_URL || isGoogleDriveFolderUrl(JSON_SNAPSHOT_BASE_URL)) {
+    return null
+  }
+
+  const baseUrl = JSON_SNAPSHOT_BASE_URL.trim()
+  return new URL(
+    fileName,
+    baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`
+  ).toString()
+}
+
+async function readRemoteEtlSnapshot(datasetKey: MetricasDatasetKey) {
+  const manifestUrl = getRemoteEtlFileUrl(ETL_MANIFEST_FILE_NAME)
+  if (!manifestUrl) return null
+
+  const manifestResponse = await fetchCsvDownloadResponse(manifestUrl)
+  if (!manifestResponse.ok) {
+    throw new Error(`No se pudo descargar el manifest ETL: ${manifestResponse.status}`)
+  }
+  const manifest = (await manifestResponse.json()) as EtlManifest
+  if (manifest.schemaVersion !== 1) {
+    throw new Error(`Version de manifest ETL no soportada: ${manifest.schemaVersion}`)
+  }
+
+  const entry = manifest.datasets[datasetKey]
+  if (!entry) throw new Error(`El manifest ETL no contiene ${datasetKey}`)
+  validateEtlDatasetFileName(entry.file)
+  const snapshotUrl = getRemoteEtlFileUrl(entry.file)
+  if (!snapshotUrl) return null
+
+  const response = await fetchCsvDownloadResponse(snapshotUrl)
+  if (!response.ok) {
+    throw new Error(`No se pudo descargar el snapshot ETL: ${response.status}`)
+  }
+  const input = Buffer.from(await response.arrayBuffer())
+  return deserializeSnapshotBuffer(input, entry)
+}
+
 async function readJsonSnapshot(datasetKey: MetricasDatasetKey) {
-  const snapshotPath = getJsonSnapshotPath(datasetKey)
-  if (snapshotPath) {
+  if (JSON_SNAPSHOT_DIR) {
     try {
+      const etlSnapshot = await readLocalEtlSnapshot(datasetKey)
+      if (etlSnapshot) return etlSnapshot
+    } catch (error) {
+      console.warn("No se pudo leer el snapshot ETL local", { datasetKey, error })
+    }
+
+    const snapshotPath = getJsonSnapshotPath(datasetKey)
+    if (snapshotPath) try {
       const raw = await fs.readFile(snapshotPath, "utf8")
       return deserializeSnapshot(JSON.parse(raw) as PersistedDatasetSnapshot)
     } catch {
-      return null
+      // Continua con las fuentes de fallback.
     }
+  }
+
+  try {
+    const etlSnapshot = await readRemoteEtlSnapshot(datasetKey)
+    if (etlSnapshot) return etlSnapshot
+  } catch (error) {
+    console.warn("No se pudo leer el snapshot ETL remoto", { datasetKey, error })
   }
 
   const snapshotUrl = await getJsonSnapshotBaseUrl(datasetKey)
@@ -836,13 +949,17 @@ async function readJsonSnapshot(datasetKey: MetricasDatasetKey) {
 }
 
 async function readFreshPersistedSnapshot(datasetKey: MetricasDatasetKey) {
-  if (CSV_URL) {
-    return null
-  }
-
   const datasetCachePath = getDatasetCachePath(datasetKey)
 
   try {
+    if (CSV_URL) {
+      const snapshotStat = await fs.stat(datasetCachePath)
+      if (Date.now() - snapshotStat.mtimeMs > CSV_REFRESH_TTL_MS) return null
+      return readPersistedSnapshot(datasetKey)
+    }
+
+    if (!CSV_PATH) return null
+
     const [csvStat, snapshotStat] = await Promise.all([
       fs.stat(CSV_PATH),
       fs.stat(datasetCachePath),
@@ -897,6 +1014,10 @@ function buildDatasetSnapshot(rows: NormalizedRow[]): DatasetSnapshot {
 
 async function createCsvInputStream() {
   if (!CSV_URL) {
+    if (!CSV_PATH) {
+      throw new Error("Configura METRICAS_CSV_PATH o METRICAS_CSV_URL")
+    }
+
     return createReadStream(CSV_PATH)
   }
 
@@ -1066,7 +1187,14 @@ async function getCsvParserConfig() {
   if (CSV_URL) {
     return {
       delimiter: process.env.METRICAS_CSV_DELIMITER || DEFAULT_CSV_DELIMITER,
-      fromLine: Number(process.env.METRICAS_CSV_FROM_LINE || DEFAULT_CSV_FROM_LINE),
+      fromLine: Number(process.env.METRICAS_CSV_FROM_LINE || 1),
+    }
+  }
+
+  if (!CSV_PATH) {
+    return {
+      delimiter: process.env.METRICAS_CSV_DELIMITER || DEFAULT_CSV_DELIMITER,
+      fromLine: 1,
     }
   }
 
@@ -1102,26 +1230,32 @@ async function buildSnapshotsFromCsv() {
   }
 
   const input = await createCsvInputStream()
-  const csvConfig = await getCsvParserConfig()
   const parser = parse({
-    delimiter: csvConfig.delimiter,
-    from_line: csvConfig.fromLine,
+    delimiter: process.env.METRICAS_CSV_DELIMITER || DEFAULT_CSV_DELIMITER,
+    from_line: 1,
     relax_column_count: true,
     quote: false,
+    encoding: "latin1",
   })
+  let dataRows = 0
 
   for await (const row of input.pipe(parser) as AsyncIterable<CsvRow>) {
-    if (!isCoreCsvRow(row)) {
-      continue
-    }
+    if (row.length === METRICAS_CSV_COLUMN_COUNT) dataRows += 1
+    const parsedRow = parseMetricasCsvRow(row)
 
-    const datasetKey = getCsvDatasetKey(row)
+    if (!parsedRow) continue
 
-    if (!datasetKey) {
-      continue
-    }
+    rowsByDataset[parsedRow.datasetKey].push(parsedRow.row)
+  }
 
-    rowsByDataset[datasetKey].push(normalizeCsvRow(row, datasetKey))
+  if (!dataRows) {
+    throw new Error(
+      `El CSV no contiene filas con ${METRICAS_CSV_COLUMN_COUNT} columnas`
+    )
+  }
+
+  if (!rowsByDataset.alumbrado.length && !rowsByDataset["paisaje-urbano"].length) {
+    throw new Error("El CSV no contiene registros para los tableros configurados")
   }
 
   return {
@@ -1133,9 +1267,15 @@ async function buildSnapshotsFromCsv() {
 let csvSnapshotBuildPromise:
   | Promise<Record<MetricasDatasetKey, DatasetSnapshot>>
   | null = null
+let cachedCsvSnapshots: {
+  expiresAt: number
+  snapshots: Record<MetricasDatasetKey, DatasetSnapshot>
+} | null = null
 
 async function readCsvSnapshot(datasetKey: MetricasDatasetKey) {
   if (!CSV_URL) {
+    if (!CSV_PATH) return null
+
     try {
       await fs.access(CSV_PATH)
     } catch {
@@ -1143,17 +1283,28 @@ async function readCsvSnapshot(datasetKey: MetricasDatasetKey) {
     }
   }
 
-  csvSnapshotBuildPromise ??= buildSnapshotsFromCsv().finally(() => {
-    csvSnapshotBuildPromise = null
-  })
+  if (cachedCsvSnapshots && cachedCsvSnapshots.expiresAt > Date.now()) {
+    return cachedCsvSnapshots.snapshots[datasetKey]
+  }
+
+  csvSnapshotBuildPromise ??= buildSnapshotsFromCsv()
+    .then(async (snapshots) => {
+      await Promise.all(
+        (Object.entries(snapshots) as Array<
+          [MetricasDatasetKey, DatasetSnapshot]
+        >).map(([key, snapshot]) => persistSnapshotSafely(key, snapshot))
+      )
+      cachedCsvSnapshots = {
+        expiresAt: Date.now() + CSV_REFRESH_TTL_MS,
+        snapshots,
+      }
+      return snapshots
+    })
+    .finally(() => {
+      csvSnapshotBuildPromise = null
+    })
 
   const snapshots = await csvSnapshotBuildPromise
-
-  await Promise.all(
-    (Object.entries(snapshots) as Array<[MetricasDatasetKey, DatasetSnapshot]>).map(
-      ([key, snapshot]) => persistSnapshotSafely(key, snapshot)
-    )
-  )
 
   return snapshots[datasetKey]
 }
@@ -1267,48 +1418,52 @@ async function getCachedDataset(datasetKey: MetricasDatasetKey) {
     return cachedDataset.snapshot
   }
 
-  const jsonSnapshot = await readJsonSnapshot(datasetKey)
+  const hasJsonSource = Boolean(JSON_SNAPSHOT_DIR || JSON_SNAPSHOT_BASE_URL)
 
-  if (jsonSnapshot) {
-    datasetCache.set(datasetKey, {
-      expiresAt: Date.now() + CACHE_TTL_MS,
-      snapshot: jsonSnapshot,
-    })
+  if (hasJsonSource) {
+    const jsonSnapshot = await readJsonSnapshot(datasetKey)
 
-    return jsonSnapshot
+    if (jsonSnapshot) {
+      datasetCache.set(datasetKey, {
+        expiresAt: Date.now() + CACHE_TTL_MS,
+        snapshot: jsonSnapshot,
+      })
+
+      return jsonSnapshot
+    }
   }
 
-  const xlsbSnapshot = await readXlsbSnapshot(datasetKey)
+  const hasCsvSource = Boolean(CSV_URL || CSV_PATH)
 
-  if (xlsbSnapshot) {
-    datasetCache.set(datasetKey, {
-      expiresAt: Date.now() + CACHE_TTL_MS,
-      snapshot: xlsbSnapshot,
-    })
+  if (hasCsvSource) {
+    const freshPersistedSnapshot = await readFreshPersistedSnapshot(datasetKey)
 
-    return xlsbSnapshot
-  }
+    if (freshPersistedSnapshot) {
+      datasetCache.set(datasetKey, {
+        expiresAt: Date.now() + CACHE_TTL_MS,
+        snapshot: freshPersistedSnapshot,
+      })
 
-  const freshPersistedSnapshot = await readFreshPersistedSnapshot(datasetKey)
+      return freshPersistedSnapshot
+    }
 
-  if (freshPersistedSnapshot) {
-    datasetCache.set(datasetKey, {
-      expiresAt: Date.now() + CACHE_TTL_MS,
-      snapshot: freshPersistedSnapshot,
-    })
+    try {
+      const csvSnapshot = await readCsvSnapshot(datasetKey)
 
-    return freshPersistedSnapshot
-  }
+      if (csvSnapshot) {
+        datasetCache.set(datasetKey, {
+          expiresAt: Date.now() + CACHE_TTL_MS,
+          snapshot: csvSnapshot,
+        })
 
-  const csvSnapshot = await readCsvSnapshot(datasetKey)
-
-  if (csvSnapshot) {
-    datasetCache.set(datasetKey, {
-      expiresAt: Date.now() + CACHE_TTL_MS,
-      snapshot: csvSnapshot,
-    })
-
-    return csvSnapshot
+        return csvSnapshot
+      }
+    } catch (error) {
+      console.warn("No se pudo actualizar el dataset desde el CSV", {
+        datasetKey,
+        error,
+      })
+    }
   }
 
   const persistedSnapshot = await readPersistedSnapshot(datasetKey)
@@ -1334,7 +1489,7 @@ async function getCachedDataset(datasetKey: MetricasDatasetKey) {
   }
 
   throw new Error(
-    `No hay datos disponibles para ${datasetKey}. Configura un XLSB, METRICAS_CSV_URL o ejecuta npm run generate-csv-snapshots.`
+    `No hay datos disponibles para ${datasetKey}. Configura METRICAS_CSV_PATH o METRICAS_CSV_URL.`
   )
 }
 
