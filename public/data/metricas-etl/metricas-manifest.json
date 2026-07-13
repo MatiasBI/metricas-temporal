@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-13T21:18:38.653Z",
+  "source": {
+    "kind": "file",
+    "location": "archivo del 7-72026 horario 18HS.Csv",
+    "bytes": 145995116,
+    "modifiedAt": "2026-07-13T12:58:51.194Z",
+    "physicalRows": 744258,
+    "dataRows": 744255
+  },
+  "datasets": {
+    "alumbrado": {
+      "file": "metricas-alumbrado-dataset.20260713T211838Z.fe43aa6ad3f2.json.gz",
+      "rows": 229598,
+      "bytes": 2681069,
+      "uncompressedBytes": 71335983,
+      "sha256": "fe43aa6ad3f279b7f564309335baf54bca3444b6cec1b5501891c5ccf144fee5",
+      "uncompressedSha256": "068309fccf5275ac19885587eed395acf76d87d07e8e991f016e1228dae36b57",
+      "minDate": "2014-06-12",
+      "maxDate": "2026-07-07",
+      "states": {
+        "resueltos": 167029,
+        "denegados": 53958,
+        "pendientes": 8611
+      }
+    },
+    "paisaje-urbano": {
+      "file": "metricas-paisaje-urbano-dataset.20260713T211838Z.9ea586061066.json.gz",
+      "rows": 7008,
+      "bytes": 113962,
+      "uncompressedBytes": 2308965,
+      "sha256": "9ea58606106641c641d824cf81cc32626a4c748fbac6f5787a0cd199a97dc1db",
+      "uncompressedSha256": "9e28154bbbae6fb6736340c3c631b3ab90ee9ae3aecde4ba4bff31bc77a3a640",
+      "minDate": "2019-01-18",
+      "maxDate": "2026-07-07",
+      "states": {
+        "pendientes": 3332,
+        "resueltos": 2127,
+        "denegados": 1549
+      }
+    }
+  }
+}
