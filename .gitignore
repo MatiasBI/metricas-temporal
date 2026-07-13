@@ -55,6 +55,9 @@ Thumbs.db
 
 *.pem
 *.log
+/work/
+/outputs/
+/data/metricas-etl/
 
 # Generated metric snapshots
 
