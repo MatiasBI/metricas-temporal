@@ -1,22 +1,11 @@
 import { promises as fs } from "fs"
 import path from "path"
 
-import { getMetricasData, type MetricasDatasetKey } from "../src/lib/metricas"
-
-const DATASET_KEYS: MetricasDatasetKey[] = [
-  "alumbrado",
-  "paisaje-urbano",
-]
-
-const CACHE_FILE_NAMES: Record<MetricasDatasetKey, string> = {
-  alumbrado: "metricas-alumbrado-dataset.json",
-  "paisaje-urbano": "metricas-paisaje-urbano-dataset.json",
-}
-
-const DEMO_FILE_NAMES: Record<MetricasDatasetKey, string> = {
-  alumbrado: "alumbrado-dataset.json",
-  "paisaje-urbano": "paisaje-urbano-dataset.json",
-}
+import { getMetricasData } from "../src/lib/metricas"
+import {
+  METRICAS_DATASET_KEYS,
+  type MetricasDatasetKey,
+} from "../src/lib/metricas-csv"
 
 async function waitForCacheSnapshot(cachePath: string) {
   for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -41,13 +30,13 @@ async function ensureDemoSnapshot(datasetKey: MetricasDatasetKey) {
     process.cwd(),
     ".next",
     "cache",
-    CACHE_FILE_NAMES[datasetKey]
+    `metricas-${datasetKey}-dataset.json`
   )
 
   await fs.rm(cachePath, { force: true })
   await getMetricasData(datasetKey)
   const demoDir = path.join(process.cwd(), "src", "data", "metricas-demo")
-  const demoPath = path.join(demoDir, DEMO_FILE_NAMES[datasetKey])
+  const demoPath = path.join(demoDir, `${datasetKey}-dataset.json`)
 
   await waitForCacheSnapshot(cachePath)
   await fs.mkdir(demoDir, { recursive: true })
@@ -57,7 +46,7 @@ async function ensureDemoSnapshot(datasetKey: MetricasDatasetKey) {
 }
 
 async function main() {
-  for (const datasetKey of DATASET_KEYS) {
+  for (const datasetKey of METRICAS_DATASET_KEYS) {
     console.log(`Preparando snapshot demo para ${datasetKey}...`)
     await ensureDemoSnapshot(datasetKey)
   }

@@ -29,6 +29,36 @@ export const RouteData: Record<string, RouteDataType> = {
     alwaysAllowedMiddleware: true,
   },
 
+  "/metricas/calzada-emui": {
+    routeName: "Metricas Calzada - EMUI",
+    authUnprotected: true,
+    alwaysAllowedMiddleware: true,
+  },
+
+  "/metricas/mobiliario-urbano": {
+    routeName: "Metricas Mobiliario Urbano",
+    authUnprotected: true,
+    alwaysAllowedMiddleware: true,
+  },
+
+  "/metricas/pluviales": {
+    routeName: "Metricas Pluviales",
+    authUnprotected: true,
+    alwaysAllowedMiddleware: true,
+  },
+
+  "/metricas/vias-peatonales": {
+    routeName: "Metricas Vias Peatonales",
+    authUnprotected: true,
+    alwaysAllowedMiddleware: true,
+  },
+
+  "/metricas/flujo-mantenimiento": {
+    routeName: "Flujo Mantenimiento",
+    authUnprotected: true,
+    alwaysAllowedMiddleware: true,
+  },
+
   "/metricas/paisaje-urbano": {
     routeName: "Metricas Paisaje Urbano",
     authUnprotected: true,
