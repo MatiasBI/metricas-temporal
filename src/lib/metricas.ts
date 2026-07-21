@@ -10,6 +10,7 @@ import * as XLSX from "xlsx"
 
 import { BARRIOS_BY_COMUNA } from "./barrios"
 import {
+  METRICAS_DATASET_KEYS,
   METRICAS_CSV_COLUMN_COUNT,
   parseMetricasCsvRow,
   type MetricasDatasetKey,
@@ -158,6 +159,10 @@ const CSV_PATH = process.env.METRICAS_CSV_PATH
 const CSV_URL = process.env.METRICAS_CSV_URL
 const XLSB_PATHS: Record<MetricasDatasetKey, string> = {
   alumbrado: process.env.METRICAS_ALUMBRADO_XLSB_PATH || "",
+  "calzada-emui": "",
+  "mobiliario-urbano": "",
+  pluviales: "",
+  "vias-peatonales": "",
   "paisaje-urbano": process.env.METRICAS_PAISAJE_URBANO_XLSB_PATH || "",
 }
 
@@ -176,6 +181,10 @@ type EtlManifest = {
 }
 const XLSB_URLS: Record<MetricasDatasetKey, string | undefined> = {
   alumbrado: process.env.METRICAS_ALUMBRADO_XLSB_URL,
+  "calzada-emui": undefined,
+  "mobiliario-urbano": undefined,
+  pluviales: undefined,
+  "vias-peatonales": undefined,
   "paisaje-urbano": process.env.METRICAS_PAISAJE_URBANO_XLSB_URL,
 }
 const JSON_SNAPSHOT_DIR = process.env.METRICAS_JSON_DIR
@@ -185,11 +194,19 @@ const gunzip = promisify(gunzipCallback)
 const DEFAULT_CSV_DELIMITER = "|"
 const CACHE_FILE_NAMES: Record<MetricasDatasetKey, string> = {
   alumbrado: "metricas-alumbrado-dataset.json",
+  "calzada-emui": "metricas-calzada-emui-dataset.json",
+  "mobiliario-urbano": "metricas-mobiliario-urbano-dataset.json",
+  pluviales: "metricas-pluviales-dataset.json",
+  "vias-peatonales": "metricas-vias-peatonales-dataset.json",
   "paisaje-urbano": "metricas-paisaje-urbano-dataset.json",
 }
 
 const DEMO_FILE_NAMES: Record<MetricasDatasetKey, string> = {
   alumbrado: "alumbrado-dataset.json",
+  "calzada-emui": "calzada-emui-dataset.json",
+  "mobiliario-urbano": "mobiliario-urbano-dataset.json",
+  pluviales: "pluviales-dataset.json",
+  "vias-peatonales": "vias-peatonales-dataset.json",
   "paisaje-urbano": "paisaje-urbano-dataset.json",
 }
 
@@ -267,6 +284,8 @@ const STATUS_MAP: Record<string, EstadoClave> = {
   IM04: "denegados",
   IM05: "denegados",
   CANC: "denegados",
+  FREN: "denegados",
+  OTRA: "denegados",
 }
 
 const DENEGADO_MOTIVOS: Record<string, string> = {
@@ -276,6 +295,8 @@ const DENEGADO_MOTIVOS: Record<string, string> = {
   IM03: "Imposibilidad Tecnica",
   IM04: "Fuera de Competencia",
   IM05: "Cancelado por Usuario",
+  FREN: "Responsabilidad frentista",
+  OTRA: "Fuera de SAP - Otras Areas",
 }
 
 const COLUMN = {
@@ -1224,10 +1245,9 @@ async function getCsvParserConfig() {
 }
 
 async function buildSnapshotsFromCsv() {
-  const rowsByDataset: Record<MetricasDatasetKey, NormalizedRow[]> = {
-    alumbrado: [],
-    "paisaje-urbano": [],
-  }
+  const rowsByDataset = Object.fromEntries(
+    METRICAS_DATASET_KEYS.map((datasetKey) => [datasetKey, []])
+  ) as Record<MetricasDatasetKey, NormalizedRow[]>
 
   const input = await createCsvInputStream()
   const parser = parse({
@@ -1254,14 +1274,16 @@ async function buildSnapshotsFromCsv() {
     )
   }
 
-  if (!rowsByDataset.alumbrado.length && !rowsByDataset["paisaje-urbano"].length) {
+  if (Object.values(rowsByDataset).every((rows) => rows.length === 0)) {
     throw new Error("El CSV no contiene registros para los tableros configurados")
   }
 
-  return {
-    alumbrado: buildDatasetSnapshot(rowsByDataset.alumbrado),
-    "paisaje-urbano": buildDatasetSnapshot(rowsByDataset["paisaje-urbano"]),
-  }
+  return Object.fromEntries(
+    METRICAS_DATASET_KEYS.map((datasetKey) => [
+      datasetKey,
+      buildDatasetSnapshot(rowsByDataset[datasetKey]),
+    ])
+  ) as Record<MetricasDatasetKey, DatasetSnapshot>
 }
 
 let csvSnapshotBuildPromise:

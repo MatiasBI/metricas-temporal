@@ -4,6 +4,7 @@ import { Readable } from "stream"
 import { parse } from "csv-parse"
 
 import {
+  METRICAS_DATASET_KEYS,
   METRICAS_CSV_COLUMN_COUNT,
   parseMetricasCsvRow,
   type MetricasCsvNormalizedRow,
@@ -128,13 +129,9 @@ function decodeHtml(value: string) {
 }
 
 async function main() {
-  const rowsByDataset: Record<
-    MetricasDatasetKey,
-    MetricasCsvNormalizedRow[]
-  > = {
-    alumbrado: [],
-    "paisaje-urbano": [],
-  }
+  const rowsByDataset = Object.fromEntries(
+    METRICAS_DATASET_KEYS.map((datasetKey) => [datasetKey, []])
+  ) as Record<MetricasDatasetKey, MetricasCsvNormalizedRow[]>
   let physicalRows = 0
   let dataRows = 0
 
@@ -168,10 +165,7 @@ async function main() {
   for (const [datasetKey, rows] of Object.entries(rowsByDataset) as Array<
     [MetricasDatasetKey, MetricasCsvNormalizedRow[]]
   >) {
-    const fileName =
-      datasetKey === "alumbrado"
-        ? "alumbrado-dataset.json"
-        : "paisaje-urbano-dataset.json"
+    const fileName = `${datasetKey}-dataset.json`
     await fs.writeFile(
       path.join(OUT_DIR, fileName),
       JSON.stringify(buildSnapshot(rows)),

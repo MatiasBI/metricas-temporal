@@ -1,41 +1,9 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 
-import { buildMetricasExcelContent } from "../../../../lib/metricas-export"
-import { getMetricasExportRows } from "../../../../lib/metricas"
+import { handleMetricasExportRequest } from "../../../../lib/metricas-route"
 
 export const dynamic = "force-dynamic"
 
-function getFilterValues(req: NextRequest, key: string) {
-  const values = req.nextUrl.searchParams.getAll(key)
-  return values.flatMap((value) => value.split(",")).filter(Boolean)
-}
-
-export async function GET(req: NextRequest) {
-  try {
-    const today = new Date().toISOString().slice(0, 10)
-    const rows = await getMetricasExportRows("paisaje-urbano", {
-      years: getFilterValues(req, "years"),
-      months: getFilterValues(req, "months"),
-      prestacion: getFilterValues(req, "prestacion"),
-      categoria: getFilterValues(req, "categoria"),
-      comuna: getFilterValues(req, "comuna"),
-      barrio: getFilterValues(req, "barrio"),
-    })
-
-    const content = buildMetricasExcelContent(rows, "paisaje-urbano")
-
-    return new NextResponse(content, {
-      headers: {
-        "Content-Type": "application/vnd.ms-excel; charset=utf-8",
-        "Content-Disposition": `attachment; filename="paisaje-urbano-${today}.xls"`,
-      },
-    })
-  } catch (error) {
-    console.error(error)
-
-    return NextResponse.json(
-      { error: "Error exportando metricas filtradas" },
-      { status: 500 }
-    )
-  }
+export function GET(req: NextRequest) {
+  return handleMetricasExportRequest(req, "paisaje-urbano")
 }

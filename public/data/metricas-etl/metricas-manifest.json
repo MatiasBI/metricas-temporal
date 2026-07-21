@@ -1,44 +1,118 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-13T21:18:38.653Z",
+  "generatedAt": "2026-07-21T19:36:02.773Z",
   "source": {
     "kind": "file",
-    "location": "archivo del 7-72026 horario 18HS.Csv",
-    "bytes": 145995116,
-    "modifiedAt": "2026-07-13T12:58:51.194Z",
-    "physicalRows": 744258,
-    "dataRows": 744255
+    "location": "Avisos - 15072026.csv",
+    "bytes": 146367113,
+    "modifiedAt": "2026-07-17T14:54:15.385Z",
+    "physicalRows": 746087,
+    "dataRows": 746084,
+    "discardedStatuses": {
+      "ANEX": 2
+    }
   },
   "datasets": {
     "alumbrado": {
-      "file": "metricas-alumbrado-dataset.20260713T211838Z.fe43aa6ad3f2.json.gz",
-      "rows": 229598,
-      "bytes": 2681069,
-      "uncompressedBytes": 71335983,
-      "sha256": "fe43aa6ad3f279b7f564309335baf54bca3444b6cec1b5501891c5ccf144fee5",
-      "uncompressedSha256": "068309fccf5275ac19885587eed395acf76d87d07e8e991f016e1228dae36b57",
+      "file": "metricas-alumbrado-dataset.20260721T193602Z.3bb1634df76d.json.gz",
+      "rows": 230355,
+      "bytes": 2689420,
+      "uncompressedBytes": 71566474,
+      "sha256": "3bb1634df76d2e9c7409a1d2a1b6053600c8427cced039ab3e1e124e76f1c762",
+      "uncompressedSha256": "619c69f4c34676cb403ea6b910690041a00e5228a0be5b1bf0b25a82adc59c44",
       "minDate": "2014-06-12",
-      "maxDate": "2026-07-07",
+      "maxDate": "2026-07-14",
       "states": {
-        "resueltos": 167029,
-        "denegados": 53958,
-        "pendientes": 8611
+        "resueltos": 167436,
+        "denegados": 54077,
+        "pendientes": 8842
+      }
+    },
+    "calzada-emui": {
+      "file": "metricas-calzada-emui-dataset.20260721T193602Z.a0628fffb7b0.json.gz",
+      "rows": 180825,
+      "bytes": 2227841,
+      "uncompressedBytes": 53604918,
+      "sha256": "a0628fffb7b0060c17490f4fcb0a2339344eebc26b5f6de6a18b23acda039b37",
+      "uncompressedSha256": "3a6a88e7d21462fe4fed23bf37d6ef3fa7bf96815ffb014c98363bed7ec38a1a",
+      "minDate": "2014-05-14",
+      "maxDate": "2026-07-14",
+      "states": {
+        "resueltos": 128359,
+        "denegados": 44125,
+        "pendientes": 8341
+      }
+    },
+    "mobiliario-urbano": {
+      "file": "metricas-mobiliario-urbano-dataset.20260721T193602Z.7b9ffca74bb0.json.gz",
+      "rows": 10444,
+      "bytes": 151706,
+      "uncompressedBytes": 3488663,
+      "sha256": "7b9ffca74bb02b0a6ef0d119394d7f67891ec99e248c6c8194aae24ba01a6df5",
+      "uncompressedSha256": "ec6f95ede3e47f10ec6a64b817ccd155bd4374a057a3df2d56e8942a0b68a717",
+      "minDate": "2019-01-02",
+      "maxDate": "2026-07-14",
+      "states": {
+        "resueltos": 5692,
+        "denegados": 4424,
+        "pendientes": 328
+      }
+    },
+    "pluviales": {
+      "file": "metricas-pluviales-dataset.20260721T193602Z.13eee8c4a0e6.json.gz",
+      "rows": 37004,
+      "bytes": 479741,
+      "uncompressedBytes": 12178524,
+      "sha256": "13eee8c4a0e612b811c525f84ab8ec4ee789e85edfafde1a438a4c3c79b88d78",
+      "uncompressedSha256": "40777a2c536c16b39a5542d0576e4a44a1871c714b280d0f9305ee11888f4eff",
+      "minDate": "2019-01-01",
+      "maxDate": "2026-07-14",
+      "states": {
+        "resueltos": 27062,
+        "denegados": 8421,
+        "pendientes": 1521
+      }
+    },
+    "vias-peatonales": {
+      "file": "metricas-vias-peatonales-dataset.20260721T193602Z.a9d68d750f79.json.gz",
+      "rows": 176525,
+      "bytes": 2310941,
+      "uncompressedBytes": 53902592,
+      "sha256": "a9d68d750f7927ed8e0ad9d6fd56f620a9c55a867d321c0f4f5cbdedef99e86e",
+      "uncompressedSha256": "a9cbef4d2bb729be14142fa037a58b0dabb3bc1ccfaa8a0581095a310acc35e9",
+      "minDate": "2016-01-11",
+      "maxDate": "2026-07-14",
+      "states": {
+        "denegados": 91743,
+        "resueltos": 66587,
+        "pendientes": 18195
       }
     },
     "paisaje-urbano": {
-      "file": "metricas-paisaje-urbano-dataset.20260713T211838Z.9ea586061066.json.gz",
-      "rows": 7008,
-      "bytes": 113962,
-      "uncompressedBytes": 2308965,
-      "sha256": "9ea58606106641c641d824cf81cc32626a4c748fbac6f5787a0cd199a97dc1db",
-      "uncompressedSha256": "9e28154bbbae6fb6736340c3c631b3ab90ee9ae3aecde4ba4bff31bc77a3a640",
+      "file": "metricas-paisaje-urbano-dataset.20260721T193602Z.75cd3e58d5a6.json.gz",
+      "rows": 7006,
+      "bytes": 113953,
+      "uncompressedBytes": 2308220,
+      "sha256": "75cd3e58d5a6e4d72a39fd9ee8c2032b75daea53fd4e6d085f42d4280ef16c96",
+      "uncompressedSha256": "d88e90d7d6386d4fa9545cf6a71d223297cb648495c750096d4024088c0df1fe",
       "minDate": "2019-01-18",
-      "maxDate": "2026-07-07",
+      "maxDate": "2026-07-14",
       "states": {
-        "pendientes": 3332,
-        "resueltos": 2127,
-        "denegados": 1549
+        "pendientes": 3333,
+        "resueltos": 2126,
+        "denegados": 1547
       }
     }
+  },
+  "flujoMantenimiento": {
+    "file": "flujo-mantenimiento-dataset.20260721T193602Z.8575b73c2d1f.json.gz",
+    "rows": 453621,
+    "bytes": 56515,
+    "uncompressedBytes": 663213,
+    "sha256": "8575b73c2d1fb152d7aac2d0ba34e2b8f032956736f906b624a115d8336b6e8c",
+    "uncompressedSha256": "5ed63c7f0ce252732a8a0cc7baeaf0c843e45c38f9c615c931b43ffb212c24ed",
+    "minDate": "2016-01-01",
+    "maxDate": "2026-07-01",
+    "states": {}
   }
 }

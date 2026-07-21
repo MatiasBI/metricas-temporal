@@ -9,7 +9,7 @@
 ## Objetivo
 
 Ejecutar automáticamente una vez al día la ETL del CSV de Avisos SAP, publicar
-los dos snapshots comprimidos y actualizar el manifest solamente cuando toda
+los siete snapshots comprimidos y actualizar el manifest solamente cuando toda
 la operación haya terminado correctamente.
 
 El usuario no debería tener que ejecutar manualmente:
@@ -24,8 +24,11 @@ Ya está implementado y probado:
 
 - `scripts/etl-metricas.ts` procesa el CSV por streaming.
 - `src/lib/metricas-csv.ts` concentra las reglas de filtrado y normalización.
-- Un único CSV genera Alumbrado y Paisaje Urbano.
+- Un único CSV genera Alumbrado, Calzada - EMUI, Mobiliario Urbano, Pluviales,
+  Vias Peatonales y Paisaje Urbano.
 - La ETL genera snapshots `.json.gz` versionados.
+- La ETL genera también el agregado mensual de flujo para las cinco áreas de
+  Mantenimiento.
 - La ETL genera `metricas-manifest.json` con conteos, fechas, tamaños y
   checksums SHA-256.
 - Los datasets se escriben antes que el manifest.
@@ -35,14 +38,19 @@ Ya está implementado y probado:
 - El runtime valida tamaño y checksum antes de usar un snapshot comprimido.
 - El CSV crudo permanece como fallback.
 
-Validación realizada con el archivo del 7/7/2026:
+Validación realizada con el archivo del 15/7/2026:
 
 | Dataset | Filas | Tamaño gzip | Primera respuesta local |
 |---|---:|---:|---:|
-| Alumbrado | 229.598 | 2,56 MB | 1,85 s |
-| Paisaje Urbano | 7.008 | 111 KB | 0,60 s |
+| Alumbrado | 230.355 | 2,56 MB | 1,06 s |
+| Calzada - EMUI | 180.825 | 2,12 MB | 1,99 s |
+| Mobiliario Urbano | 10.444 | 0,14 MB | 0,80 s |
+| Pluviales | 37.004 | 0,46 MB | 0,45 s |
+| Vias Peatonales | 176.525 | 2,20 MB | 2,57 s |
+| Paisaje Urbano | 7.006 | 0,11 MB | 0,13 s |
+| Flujo Mantenimiento | 453.621 filas fuente | 0,05 MB | 0,13 s |
 
-La ETL completa tardó aproximadamente 98 segundos. No debe ejecutarse durante
+La ETL completa tardó aproximadamente 111 segundos. No debe ejecutarse durante
 una petición normal del dashboard.
 
 ## Lo que todavía falta implementar
@@ -71,6 +79,10 @@ GitHub Actions (cron + ejecución manual)
 npm run etl-metricas
         |
         +--> metricas-alumbrado-dataset.<version>.<hash>.json.gz
+        +--> metricas-calzada-emui-dataset.<version>.<hash>.json.gz
+        +--> metricas-mobiliario-urbano-dataset.<version>.<hash>.json.gz
+        +--> metricas-pluviales-dataset.<version>.<hash>.json.gz
+        +--> metricas-vias-peatonales-dataset.<version>.<hash>.json.gz
         +--> metricas-paisaje-urbano-dataset.<version>.<hash>.json.gz
         +--> metricas-manifest.json
                           |
@@ -175,7 +187,7 @@ jobs:
         shell: bash
         run: |
           test -f data/metricas-etl/metricas-manifest.json
-          test "$(find data/metricas-etl -name '*.json.gz' | wc -l)" -eq 2
+          test "$(find data/metricas-etl -name '*.json.gz' | wc -l)" -eq 7
 
       - name: Publicar datasets versionados
         shell: bash
@@ -216,15 +228,14 @@ Documentación del cron de GitHub Actions:
 
 El workflow debe publicar en este orden:
 
-1. Snapshot versionado de Alumbrado.
-2. Snapshot versionado de Paisaje Urbano.
-3. Manifest estable, **siempre al final**.
+1. Los siete snapshots versionados.
+2. Manifest estable, **siempre al final**.
 
 Los nombres de los datasets incluyen versión y hash, por lo que son
 inmutables. El manifest es el único puntero mutable. Si una carga falla antes
 del paso 3, la aplicación continúa leyendo la versión anterior.
 
-Nunca sobrescribir el manifest antes de confirmar que los dos archivos que
+Nunca sobrescribir el manifest antes de confirmar que los siete archivos que
 referencia existen y son descargables.
 
 ## Configuración de Vercel
@@ -249,14 +260,18 @@ No habilitar el cron y asumir que funciona. Seguir este orden:
    `schedule` si se desea.
 2. Ejecutarlo manualmente desde la pestaña Actions.
 3. Confirmar que finaliza en verde.
-4. Revisar que Blob contiene dos `.json.gz` y el manifest.
+4. Revisar que Blob contiene siete `.json.gz` y el manifest.
 5. Descargar el manifest y verificar que sus nombres coinciden con los blobs.
 6. Configurar `METRICAS_JSON_BASE_URL` en Vercel.
 7. Desplegar.
 8. Consultar:
    - `/api/metricas`
+   - `/api/calzada-emui`
+   - `/api/mobiliario-urbano`
+   - `/api/pluviales`
+   - `/api/vias-peatonales`
    - `/api/paisaje-urbano`
-9. Confirmar los conteos del manifest y de ambos endpoints.
+9. Confirmar los conteos del manifest y de los siete endpoints.
 10. Medir tiempos de primera respuesta.
 11. Recién entonces activar el cron diario.
 
@@ -267,7 +282,7 @@ La automatización se considera terminada cuando:
 - corre diariamente sin intervención humana;
 - también puede ejecutarse con `workflow_dispatch`;
 - una falla no reemplaza el manifest anterior;
-- Alumbrado y Paisaje Urbano superan los umbrales mínimos;
+- los seis datasets superan sus umbrales mínimos;
 - los checksums descargados coinciden;
 - el manifest informa una fecha de datos reciente;
 - los endpoints entregan los mismos conteos del manifest;
@@ -284,6 +299,7 @@ Antes de activar producción, mejorar `scripts/etl-metricas.ts` para fallar si:
 - el total de filas cae o crece más de un porcentaje configurable respecto de
   la versión anterior;
 - falta alguna de las 8 prestaciones de Alumbrado;
+- algún área por GP cae por debajo de su umbral esperado;
 - falta alguna de las 25 prestaciones de Paisaje Urbano.
 
 Estas guardas evitan publicar silenciosamente un archivo diario incompleto.
@@ -306,11 +322,11 @@ bloqueante. Una falla de limpieza no debe invalidar una ETL correcta.
 
 Para volver a una versión anterior:
 
-1. Identificar los dos snapshots de la misma ejecución anterior.
+1. Identificar los siete snapshots de la misma ejecución anterior.
 2. Recuperar o reconstruir el manifest que los referencia.
 3. Validar tamaños y SHA-256.
 4. Sobrescribir únicamente `metricas/metricas-manifest.json`.
-5. Consultar ambos endpoints y verificar los conteos.
+5. Consultar los siete endpoints y verificar los conteos.
 
 No es necesario redeployar la aplicación si solo cambia el manifest.
 

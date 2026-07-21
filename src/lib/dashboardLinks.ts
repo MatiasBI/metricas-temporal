@@ -1,5 +1,9 @@
 import LightbulbOutlinedIcon from "@mui/icons-material/LightbulbOutlined"
+import ConstructionOutlinedIcon from "@mui/icons-material/ConstructionOutlined"
+import DirectionsWalkOutlinedIcon from "@mui/icons-material/DirectionsWalkOutlined"
 import ParkOutlinedIcon from "@mui/icons-material/ParkOutlined"
+import WaterDropOutlinedIcon from "@mui/icons-material/WaterDropOutlined"
+import WeekendOutlinedIcon from "@mui/icons-material/WeekendOutlined"
 import type { SvgIconComponent } from "@mui/icons-material"
 
 export type DashboardLink = {
@@ -10,7 +14,7 @@ export type DashboardLink = {
   Icon: SvgIconComponent
 }
 
-export const dashboardLinks: DashboardLink[] = [
+export const maintenanceDashboardLinks: DashboardLink[] = [
   {
     href: "/metricas/alumbrado",
     title: "Alumbrado",
@@ -20,6 +24,41 @@ export const dashboardLinks: DashboardLink[] = [
     Icon: LightbulbOutlinedIcon,
   },
   {
+    href: "/metricas/calzada-emui",
+    title: "Calzada - EMUI",
+    subtitle: "Mantenimiento de calzadas",
+    description:
+      "Indicadores principales, distribucion territorial, pendientes y motivos de baja.",
+    Icon: ConstructionOutlinedIcon,
+  },
+  {
+    href: "/metricas/mobiliario-urbano",
+    title: "Mobiliario Urbano",
+    subtitle: "Mantenimiento de mobiliario urbano",
+    description:
+      "Indicadores principales, distribucion territorial, pendientes y motivos de baja.",
+    Icon: WeekendOutlinedIcon,
+  },
+  {
+    href: "/metricas/pluviales",
+    title: "Pluviales",
+    subtitle: "Sistemas pluviales",
+    description:
+      "Indicadores principales, distribucion territorial, pendientes y motivos de baja.",
+    Icon: WaterDropOutlinedIcon,
+  },
+  {
+    href: "/metricas/vias-peatonales",
+    title: "Vias Peatonales",
+    subtitle: "Mantenimiento de vias peatonales",
+    description:
+      "Indicadores principales, distribucion territorial, pendientes y motivos de baja.",
+    Icon: DirectionsWalkOutlinedIcon,
+  },
+]
+
+export const paisajeDashboardLinks: DashboardLink[] = [
+  {
     href: "/metricas/paisaje-urbano",
     title: "Paisaje Urbano",
     subtitle: "Direccion General de Conservacion de Paisaje Urbano",
@@ -27,6 +66,11 @@ export const dashboardLinks: DashboardLink[] = [
       "Lectura ejecutiva de patrimonio, espacios verdes, mobiliario y estado de resolucion.",
     Icon: ParkOutlinedIcon,
   },
+]
+
+export const dashboardLinks: DashboardLink[] = [
+  ...maintenanceDashboardLinks,
+  ...paisajeDashboardLinks,
 ]
 
 export const subsecretariaLinks: DashboardLink[] = [

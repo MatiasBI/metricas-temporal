@@ -1,7 +1,8 @@
 # metricas-tremor
 
-Dashboards de métricas de Alumbrado y Paisaje Urbano. Una ETL diaria filtra el
-CSV crudo de Avisos SAP y publica snapshots comprimidos que consume la app.
+Dashboards de métricas de Mantenimiento y Paisaje Urbano. Una ETL diaria
+filtra el CSV crudo de Avisos SAP y publica snapshots comprimidos que consume
+la app.
 
 > La automatización productiva pendiente está especificada paso a paso en
 > [AUTOMATIZACION_ETL.md](./AUTOMATIZACION_ETL.md). Ese archivo es el punto de
@@ -27,16 +28,19 @@ Los campos utilizados son:
 | 12 | Comuna |
 | 13 | Prestación |
 
-El estado general se aplica a ambos tableros. `REOK` y `TERC` son resueltos;
+El estado general se aplica a todos los tableros. `REOK` y `TERC` son resueltos;
 `OPER`, `INIC`, `PLAN`, `VERI`, `PROG` y `SERV` son pendientes; `IM01` a
-`IM05` y `CANC` son denegados.
+`IM05`, `CANC`, `FREN` y `OTRA` son denegados. Los estados no clasificados,
+como `ANEX`, se descartan y quedan informados en el manifest.
 
-Un único recorrido del CSV genera simultáneamente los datasets de Alumbrado y
-Paisaje Urbano utilizando las prestaciones y grupos definidos en
-`src/lib/metricas-csv.ts`.
+Un único recorrido del CSV genera simultáneamente seis datasets: Alumbrado,
+Calzada - EMUI, Mobiliario Urbano, Pluviales, Vias Peatonales y Paisaje Urbano.
+Alumbrado conserva sus ocho prestaciones específicas; las otras cuatro áreas
+de Mantenimiento se asignan por grupo planificador y admiten todas sus
+prestaciones. Las reglas están centralizadas en `src/lib/metricas-csv.ts`.
 
 Como el CSV crudo no contiene el campo enriquecido `Tipo`, la prestación se
-usa como categoría operativa en ambos tableros.
+usa como categoría operativa en todos los tableros.
 
 ## ETL diaria
 
@@ -48,14 +52,17 @@ npm run etl-metricas
 
 Genera dentro de `METRICAS_ETL_OUT_DIR`:
 
-- un snapshot `.json.gz` versionado para Alumbrado;
-- un snapshot `.json.gz` versionado para Paisaje Urbano;
+- un snapshot `.json.gz` versionado por cada uno de los seis datasets;
+- un snapshot agregado para `/metricas/flujo-mantenimiento`;
 - `metricas-manifest.json`, con conteos, fechas, tamaños y checksums SHA-256.
 
 Los datasets se escriben antes que el manifest. De este modo, una ejecución
 fallida conserva la versión anterior y el consumidor nunca apunta a archivos
 incompletos. También se validan umbrales mínimos, configurables mediante
-`METRICAS_ETL_MIN_ALUMBRADO_ROWS` y
+`METRICAS_ETL_MIN_ALUMBRADO_ROWS`, `METRICAS_ETL_MIN_CALZADA_EMUI_ROWS`,
+`METRICAS_ETL_MIN_MOBILIARIO_URBANO_ROWS`,
+`METRICAS_ETL_MIN_PLUVIALES_ROWS`,
+`METRICAS_ETL_MIN_VIAS_PEATONALES_ROWS` y
 `METRICAS_ETL_MIN_PAISAJE_URBANO_ROWS`.
 
 ## Desarrollo local

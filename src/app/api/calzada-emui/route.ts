@@ -5,8 +5,8 @@ import { handleMetricasRequest } from "../../../lib/metricas-route"
 
 export const dynamic = "force-dynamic"
 
-warmMetricasCache("paisaje-urbano")
+warmMetricasCache("calzada-emui")
 
 export function GET(req: NextRequest) {
-  return handleMetricasRequest(req, "paisaje-urbano")
+  return handleMetricasRequest(req, "calzada-emui")
 }

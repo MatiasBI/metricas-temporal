@@ -1,4 +1,32 @@
-export type MetricasDatasetKey = "alumbrado" | "paisaje-urbano"
+export type MetricasDatasetKey =
+  | "alumbrado"
+  | "calzada-emui"
+  | "mobiliario-urbano"
+  | "pluviales"
+  | "vias-peatonales"
+  | "paisaje-urbano"
+
+export type MantenimientoDatasetKey = Exclude<
+  MetricasDatasetKey,
+  "paisaje-urbano"
+>
+
+export const METRICAS_DATASET_KEYS: MetricasDatasetKey[] = [
+  "alumbrado",
+  "calzada-emui",
+  "mobiliario-urbano",
+  "pluviales",
+  "vias-peatonales",
+  "paisaje-urbano",
+]
+
+export const MANTENIMIENTO_DATASET_KEYS: MantenimientoDatasetKey[] = [
+  "alumbrado",
+  "calzada-emui",
+  "mobiliario-urbano",
+  "pluviales",
+  "vias-peatonales",
+]
 
 export type MetricasCsvNormalizedRow = {
   aviso: string | null
@@ -52,6 +80,104 @@ const ALUMBRADO_PRESTACIONES = new Set([
 
 const ALUMBRADO_GRUPOS_EXCLUIDOS = new Set(["ALU", "ALD"])
 
+const GP_TO_MAINTENANCE_DATASET: Record<string, MetricasDatasetKey> = {
+  CA1: "calzada-emui",
+  CA2: "calzada-emui",
+  CA3: "calzada-emui",
+  CA4: "calzada-emui",
+  CA5: "calzada-emui",
+  CA6: "calzada-emui",
+  CA8: "calzada-emui",
+  CA9: "calzada-emui",
+  CAA: "calzada-emui",
+  CAC: "calzada-emui",
+  CAF: "calzada-emui",
+  CAI: "calzada-emui",
+  CAP: "calzada-emui",
+  CAS: "calzada-emui",
+  CAV: "calzada-emui",
+  FCC: "calzada-emui",
+  FCO: "calzada-emui",
+  MB1: "calzada-emui",
+  PA1: "calzada-emui",
+  PA2: "calzada-emui",
+  PU1: "calzada-emui",
+  PUC: "calzada-emui",
+  PUI: "calzada-emui",
+  MBC: "mobiliario-urbano",
+  MOB: "mobiliario-urbano",
+  MU1: "mobiliario-urbano",
+  MU2: "mobiliario-urbano",
+  MU4: "mobiliario-urbano",
+  MU5: "mobiliario-urbano",
+  MUC: "mobiliario-urbano",
+  MUI: "mobiliario-urbano",
+  SP1: "pluviales",
+  SP4: "pluviales",
+  SP5: "pluviales",
+  SP6: "pluviales",
+  SP7: "pluviales",
+  SP8: "pluviales",
+  SP9: "pluviales",
+  SPA: "pluviales",
+  SPB: "pluviales",
+  SPC: "pluviales",
+  SPD: "pluviales",
+  SPI: "pluviales",
+  AC0: "vias-peatonales",
+  AC1: "vias-peatonales",
+  AC6: "vias-peatonales",
+  ACC: "vias-peatonales",
+  ACI: "vias-peatonales",
+  ASI: "vias-peatonales",
+  AYS: "vias-peatonales",
+  BOM: "vias-peatonales",
+  BTL: "vias-peatonales",
+  CLR: "vias-peatonales",
+  CRN: "vias-peatonales",
+  EDN: "vias-peatonales",
+  EDS: "vias-peatonales",
+  FRT: "vias-peatonales",
+  MTG: "vias-peatonales",
+  MTT: "vias-peatonales",
+  NSS: "vias-peatonales",
+  SG1: "vias-peatonales",
+  SG2: "vias-peatonales",
+  SG3: "vias-peatonales",
+  SG4: "vias-peatonales",
+  TLC: "vias-peatonales",
+  TLF: "vias-peatonales",
+  TLM: "vias-peatonales",
+  TLT: "vias-peatonales",
+  TOB: "vias-peatonales",
+  VC0: "vias-peatonales",
+  VC1: "vias-peatonales",
+  VCI: "vias-peatonales",
+  VEI: "vias-peatonales",
+  VP0: "vias-peatonales",
+  VP1: "vias-peatonales",
+  VP2: "vias-peatonales",
+  VP3: "vias-peatonales",
+  VP4: "vias-peatonales",
+  VPC: "vias-peatonales",
+  VPI: "vias-peatonales",
+}
+
+export function getMantenimientoDatasetKey(
+  grupoPlanificacion: string
+): MantenimientoDatasetKey | null {
+  const grupo = normalizeText(grupoPlanificacion).toUpperCase()
+
+  if (
+    grupo.startsWith("AL") &&
+    !ALUMBRADO_GRUPOS_EXCLUIDOS.has(grupo)
+  ) {
+    return "alumbrado"
+  }
+
+  return (GP_TO_MAINTENANCE_DATASET[grupo] as MantenimientoDatasetKey) ?? null
+}
+
 const PAISAJE_PRESTACIONES = new Set([
   "BANCOS EN PARQUES Y PLAZAS: COLOCACION",
   "SOLICITUD DE INSTALACIÓN DE CANILES",
@@ -98,6 +224,8 @@ const STATUS_MAP: Record<
   IM04: "denegados",
   IM05: "denegados",
   CANC: "denegados",
+  FREN: "denegados",
+  OTRA: "denegados",
 }
 
 const DENEGADO_MOTIVOS: Record<string, string> = {
@@ -107,6 +235,8 @@ const DENEGADO_MOTIVOS: Record<string, string> = {
   IM03: "Imposibilidad Tecnica",
   IM04: "Fuera de Competencia",
   IM05: "Cancelado por Usuario",
+  FREN: "Responsabilidad frentista",
+  OTRA: "Fuera de SAP - Otras Areas",
 }
 
 function get(row: string[], index: number) {
@@ -174,11 +304,31 @@ function getDatasetKey(
     return "alumbrado"
   }
 
+  const maintenanceDataset = GP_TO_MAINTENANCE_DATASET[grupoPlanificacion]
+  if (maintenanceDataset) {
+    return maintenanceDataset
+  }
+
   if (PAISAJE_PRESTACIONES.has(prestacion)) {
     return "paisaje-urbano"
   }
 
   return null
+}
+
+export function getUnclassifiedMetricasCsvStatus(rawRow: string[]) {
+  if (rawRow.length !== METRICAS_CSV_COLUMN_COUNT) return null
+
+  const prestacion = normalizeText(get(rawRow, COLUMN.prestacion))
+  const grupoPlanificacion = normalizeText(
+    get(rawRow, COLUMN.grupoPlanificacion)
+  ).toUpperCase()
+  const datasetKey = getDatasetKey(prestacion, grupoPlanificacion)
+
+  if (!datasetKey) return null
+
+  const status = normalizeText(get(rawRow, COLUMN.statusGeneral)).toUpperCase()
+  return status && !STATUS_MAP[status] ? status : null
 }
 
 export function parseMetricasCsvRow(
