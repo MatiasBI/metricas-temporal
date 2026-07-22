@@ -898,7 +898,9 @@ async function readRemoteEtlSnapshot(datasetKey: MetricasDatasetKey) {
   const manifestUrl = getRemoteEtlFileUrl(ETL_MANIFEST_FILE_NAME)
   if (!manifestUrl) return null
 
-  const manifestResponse = await fetchCsvDownloadResponse(manifestUrl)
+  const manifestResponse = await fetchCsvDownloadResponse(manifestUrl, {
+    cache: "no-store",
+  })
   if (!manifestResponse.ok) {
     throw new Error(`No se pudo descargar el manifest ETL: ${manifestResponse.status}`)
   }
@@ -913,7 +915,9 @@ async function readRemoteEtlSnapshot(datasetKey: MetricasDatasetKey) {
   const snapshotUrl = getRemoteEtlFileUrl(entry.file)
   if (!snapshotUrl) return null
 
-  const response = await fetchCsvDownloadResponse(snapshotUrl)
+  const response = await fetchCsvDownloadResponse(snapshotUrl, {
+    cache: "no-store",
+  })
   if (!response.ok) {
     throw new Error(`No se pudo descargar el snapshot ETL: ${response.status}`)
   }
@@ -952,7 +956,9 @@ async function readJsonSnapshot(datasetKey: MetricasDatasetKey) {
   }
 
   try {
-    const response = await fetchCsvDownloadResponse(snapshotUrl)
+    const response = await fetchCsvDownloadResponse(snapshotUrl, {
+      cache: "no-store",
+    })
 
     if (!response.ok) {
       throw new Error(`No se pudo descargar el JSON ${datasetKey}: ${response.status}`)
@@ -1059,8 +1065,8 @@ async function createCsvInputStream() {
   return Readable.fromWeb(response.body as import("stream/web").ReadableStream)
 }
 
-async function fetchCsvDownloadResponse(url: string) {
-  const response = await fetch(resolveCsvDownloadUrl(url))
+async function fetchCsvDownloadResponse(url: string, init?: RequestInit) {
+  const response = await fetch(resolveCsvDownloadUrl(url), init)
   const contentType = response.headers.get("content-type") ?? ""
 
   if (!isGoogleDriveUrl(url) || !contentType.includes("text/html")) {
@@ -1077,11 +1083,10 @@ async function fetchCsvDownloadResponse(url: string) {
     })
   }
 
-  return fetch(confirmedUrl, {
-    headers: {
-      cookie: response.headers.get("set-cookie") ?? "",
-    },
-  })
+  const headers = new Headers(init?.headers)
+  headers.set("cookie", response.headers.get("set-cookie") ?? "")
+
+  return fetch(confirmedUrl, { ...init, headers })
 }
 
 function resolveCsvDownloadUrl(url: string) {
