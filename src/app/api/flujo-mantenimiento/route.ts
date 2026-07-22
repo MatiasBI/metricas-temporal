@@ -23,6 +23,10 @@ export async function GET(req: NextRequest) {
         years: values(req, "years"),
         months: values(req, "months"),
         areas: values(req, "area"),
+        prestacion: values(req, "prestacion"),
+        categoria: values(req, "categoria"),
+        comuna: values(req, "comuna"),
+        barrio: values(req, "barrio"),
       })
     )
   } catch (error) {

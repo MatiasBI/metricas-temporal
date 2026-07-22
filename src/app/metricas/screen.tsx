@@ -22,9 +22,11 @@ import TopPendientesPrestacionChart from "./components/TopPendientesPrestacionCh
 import FlujoBajasChart from "./components/FlujoBajasChart"
 import formatComuna from "./components/formatComuna"
 import formatPrestacion from "./components/formatPrestacion"
+import MetricVersionSwitch from "./components/MetricVersionSwitch"
 import DashboardSelector from "./DashboardSelector"
 import { getBarriosForComuna } from "../../lib/barrios"
 import { dashboardLinks, type DashboardLink } from "../../lib/dashboardLinks"
+import type { MantenimientoDatasetKey } from "../../lib/metricas-csv"
 
 interface MetricasData {
   resumen: {
@@ -107,6 +109,8 @@ interface Props {
   externalUrl?: string
   externalLabel?: string
   dashboardSelectorLinks?: DashboardLink[]
+  datasetKey?: MantenimientoDatasetKey
+  showDashboardSelector?: boolean
 }
 
 type FilterSelections = {
@@ -218,6 +222,8 @@ export default function MetricasScreen({
   externalUrl = DEFAULT_EXTERNAL_URL,
   externalLabel = "Ver mas en Power BI",
   dashboardSelectorLinks = dashboardLinks,
+  datasetKey,
+  showDashboardSelector = true,
 }: Props) {
   const [dashboardData, setDashboardData] = useState<MetricasData | null>(data)
   const [barrioReferenceTotals, setBarrioReferenceTotals] = useState<
@@ -574,13 +580,19 @@ export default function MetricasScreen({
           </header>
 
           <div className="metricas-body">
-            <DashboardSelector
-              compact
-              links={dashboardSelectorLinks}
-              eyebrow="Direcciones Generales"
-              title="Tableros disponibles"
-              description="Selecciona uno de los accesos disponibles para esta subsecretaria."
-            />
+            {datasetKey ? (
+              <MetricVersionSwitch activeMode="current" area={datasetKey} />
+            ) : null}
+
+            {showDashboardSelector ? (
+              <DashboardSelector
+                compact
+                links={dashboardSelectorLinks}
+                eyebrow="Direcciones Generales"
+                title="Tableros disponibles"
+                description="Selecciona uno de los accesos disponibles para esta subsecretaria."
+              />
+            ) : null}
 
             {hasActiveFilter ? (
               <div className="metricas-filter-strip">

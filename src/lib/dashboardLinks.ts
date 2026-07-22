@@ -2,6 +2,7 @@ import LightbulbOutlinedIcon from "@mui/icons-material/LightbulbOutlined"
 import ConstructionOutlinedIcon from "@mui/icons-material/ConstructionOutlined"
 import DirectionsWalkOutlinedIcon from "@mui/icons-material/DirectionsWalkOutlined"
 import ParkOutlinedIcon from "@mui/icons-material/ParkOutlined"
+import StorefrontOutlinedIcon from "@mui/icons-material/StorefrontOutlined"
 import WaterDropOutlinedIcon from "@mui/icons-material/WaterDropOutlined"
 import WeekendOutlinedIcon from "@mui/icons-material/WeekendOutlined"
 import type { SvgIconComponent } from "@mui/icons-material"
@@ -68,9 +69,21 @@ export const paisajeDashboardLinks: DashboardLink[] = [
   },
 ]
 
+export const feriasDashboardLinks: DashboardLink[] = [
+  {
+    href: "/metricas/ferias",
+    title: "Ferias",
+    subtitle: "Seguimiento operativo de ferias",
+    description:
+      "Indicadores, distribución territorial, pendientes y motivos de baja para FM1.",
+    Icon: StorefrontOutlinedIcon,
+  },
+]
+
 export const dashboardLinks: DashboardLink[] = [
   ...maintenanceDashboardLinks,
   ...paisajeDashboardLinks,
+  ...feriasDashboardLinks,
 ]
 
 export const subsecretariaLinks: DashboardLink[] = [
@@ -89,5 +102,12 @@ export const subsecretariaLinks: DashboardLink[] = [
     description:
       "Acceso a los tableros de seguimiento de paisaje urbano.",
     Icon: ParkOutlinedIcon,
+  },
+  {
+    href: "/metricas/ferias",
+    title: "Ferias",
+    subtitle: "",
+    description: "Acceso al tablero de seguimiento operativo de ferias.",
+    Icon: StorefrontOutlinedIcon,
   },
 ]

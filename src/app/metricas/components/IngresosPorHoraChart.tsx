@@ -13,8 +13,10 @@ const fmt = (n: number) => n.toLocaleString("es-AR")
 
 export default function IngresosPorHoraChart({
   items,
+  description = "Distribucion de ingresos por franja horaria dentro del filtro actual.",
 }: {
   items: Item[]
+  description?: string
 }) {
   const max = Math.max(...items.map((item) => item.cantidad), 1)
 
@@ -28,7 +30,7 @@ export default function IngresosPorHoraChart({
           Ingresos por hora
         </h3>
         <p className="text-xs text-slate-500 sm:text-sm">
-          Distribucion de ingresos por franja horaria en la demo.
+          {description}
         </p>
       </div>
 

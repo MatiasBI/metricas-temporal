@@ -1,0 +1,147 @@
+.switcher {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 12px 14px;
+  border: 1px solid #ccd8df;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.context {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 10px;
+}
+
+.context > svg {
+  flex: 0 0 auto;
+  color: #277d9c;
+  font-size: 1.45rem;
+}
+
+.context div {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.context span {
+  color: #6d7c86;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.context strong {
+  color: #213440;
+  font-size: 0.92rem;
+}
+
+.context p {
+  margin: 0;
+  color: #667781;
+  font-size: 0.76rem;
+}
+
+.options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(150px, 1fr));
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 1px solid #bdcbd3;
+  border-radius: 6px;
+  background: #f5f8fa;
+}
+
+.option,
+.activeOption {
+  display: grid;
+  min-height: 50px;
+  align-content: center;
+  gap: 2px;
+  padding: 7px 12px;
+  color: #50636f;
+  text-decoration: none;
+}
+
+.option + .option,
+.option + .activeOption,
+.activeOption + .option,
+.activeOption + .activeOption {
+  border-left: 1px solid #bdcbd3;
+}
+
+.option:hover {
+  background: #eaf2f5;
+  color: #203844;
+}
+
+.activeOption {
+  background: #176f91;
+  color: #ffffff;
+}
+
+.option span,
+.activeOption span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.option span svg,
+.activeOption span svg {
+  font-size: 1rem;
+}
+
+.option small,
+.activeOption small {
+  font-size: 0.66rem;
+}
+
+.option small {
+  color: #71828c;
+}
+
+.activeOption small {
+  color: #d8f0f8;
+}
+
+@media (max-width: 760px) {
+  .switcher {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .option,
+  .activeOption {
+    min-width: 0;
+    padding-inline: 9px;
+  }
+}
+
+@media (max-width: 420px) {
+  .context p {
+    font-size: 0.72rem;
+  }
+
+  .option span,
+  .activeOption span {
+    font-size: 0.72rem;
+  }
+
+  .option small,
+  .activeOption small {
+    font-size: 0.61rem;
+  }
+}

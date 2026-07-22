@@ -46,6 +46,7 @@ const MIN_ROWS: Record<MetricasDatasetKey, number> = {
   "paisaje-urbano": Number(
     process.env.METRICAS_ETL_MIN_PAISAJE_URBANO_ROWS || 5_000
   ),
+  ferias: Number(process.env.METRICAS_ETL_MIN_FERIAS_ROWS || 1_000),
 }
 
 type PersistedRow = Omit<MetricasCsvNormalizedRow, "fecha"> & {
@@ -101,13 +102,31 @@ type FlujoMonthSnapshot = {
   motivosBaja: Record<string, number>
   ingresosPorPrestacion: Record<string, number>
   pendientesPorPrestacion: Record<string, number>
+  ingresosPorComuna: Record<string, number>
+  ingresosPorBarrio: Record<string, number>
+  ingresosPorHora: Record<string, number>
+  prestacionesPorHora: Record<string, Record<string, number>>
 }
 
 type FlujoSnapshot = {
-  schemaVersion: 1
+  schemaVersion: 2
   generatedAt: string
   records: number
   areas: Record<MantenimientoDatasetKey, FlujoMonthSnapshot[]>
+  rows: FlujoPersistedRow[]
+}
+
+type FlujoPersistedRow = {
+  area: MantenimientoDatasetKey
+  ingresoMes: number
+  bajaMes: number | null
+  horaIngreso: string | null
+  comuna: string | null
+  barrio: string | null
+  categoria: string
+  prestacion: string
+  statusUsuario: string
+  estado: FlujoCsvRow["estado"]
 }
 
 type FlujoMonthAccumulator = Omit<
@@ -147,6 +166,26 @@ function formatMonth(index: number) {
   return `${year}-${String(month).padStart(2, "0")}`
 }
 
+function persistFlujoRow(row: FlujoCsvRow): FlujoPersistedRow {
+  const hasValidBaja =
+    row.estado !== "pendientes" &&
+    row.fechaBaja !== null &&
+    row.fechaBaja >= row.fechaIngreso
+
+  return {
+    area: row.datasetKey,
+    ingresoMes: monthIndex(row.fechaIngreso),
+    bajaMes: hasValidBaja ? monthIndex(row.fechaBaja as Date) : null,
+    horaIngreso: row.horaIngreso,
+    comuna: row.comuna,
+    barrio: row.barrio,
+    categoria: row.categoria,
+    prestacion: row.prestacion,
+    statusUsuario: row.statusUsuario,
+    estado: row.estado,
+  }
+}
+
 function incrementRecord(
   record: Record<string, number>,
   key: string,
@@ -169,6 +208,10 @@ function getFlujoMonth(
     denegados: 0,
     motivosBaja: {},
     ingresosPorPrestacion: {},
+    ingresosPorComuna: {},
+    ingresosPorBarrio: {},
+    ingresosPorHora: {},
+    prestacionesPorHora: {},
   }
   area.months.set(index, created)
   return created
@@ -195,6 +238,16 @@ function addFlujoRow(
   const ingreso = getFlujoMonth(area, ingresoIndex)
   ingreso.ingresos += 1
   incrementRecord(ingreso.ingresosPorPrestacion, row.prestacion)
+  if (row.comuna) incrementRecord(ingreso.ingresosPorComuna, row.comuna)
+  if (row.barrio) incrementRecord(ingreso.ingresosPorBarrio, row.barrio)
+  if (row.horaIngreso) {
+    incrementRecord(ingreso.ingresosPorHora, row.horaIngreso)
+    ingreso.prestacionesPorHora[row.horaIngreso] ??= {}
+    incrementRecord(
+      ingreso.prestacionesPorHora[row.horaIngreso],
+      row.prestacion
+    )
+  }
 
   if (row.estado === "pendientes") {
     addPendingDelta(area, ingresoIndex, row.prestacion, 1)
@@ -224,6 +277,7 @@ function addFlujoRow(
 
 function buildFlujoSnapshot(
   accumulators: Record<MantenimientoDatasetKey, FlujoAreaAccumulator>,
+  rows: FlujoPersistedRow[],
   generatedAt: Date,
   records: number,
   minMonth: number,
@@ -260,6 +314,10 @@ function buildFlujoSnapshot(
         motivosBaja: activity?.motivosBaja ?? {},
         ingresosPorPrestacion: activity?.ingresosPorPrestacion ?? {},
         pendientesPorPrestacion: Object.fromEntries(pendingByPrestacion),
+        ingresosPorComuna: activity?.ingresosPorComuna ?? {},
+        ingresosPorBarrio: activity?.ingresosPorBarrio ?? {},
+        ingresosPorHora: activity?.ingresosPorHora ?? {},
+        prestacionesPorHora: activity?.prestacionesPorHora ?? {},
       })
     }
 
@@ -267,10 +325,11 @@ function buildFlujoSnapshot(
   }
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     generatedAt: generatedAt.toISOString(),
     records,
     areas,
+    rows,
   }
 }
 
@@ -501,6 +560,7 @@ async function main() {
       createFlujoAreaAccumulator(),
     ])
   ) as Record<MantenimientoDatasetKey, FlujoAreaAccumulator>
+  const flujoPersistedRows: FlujoPersistedRow[] = []
   let physicalRows = 0
   let dataRows = 0
   let flujoRows = 0
@@ -522,6 +582,7 @@ async function main() {
     const flujoRow = parseFlujoMantenimientoCsvRow(rawRow)
     if (flujoRow) {
       const bounds = addFlujoRow(flujoAccumulators, flujoRow)
+      flujoPersistedRows.push(persistFlujoRow(flujoRow))
       flujoRows += 1
       flujoMinMonth = Math.min(flujoMinMonth, bounds.min)
       flujoMaxMonth = Math.max(flujoMaxMonth, bounds.max)
@@ -569,6 +630,7 @@ async function main() {
   const flujoMantenimiento = await writeFlujoSnapshot(
     buildFlujoSnapshot(
       flujoAccumulators,
+      flujoPersistedRows,
       generatedAt,
       flujoRows,
       flujoMinMonth,

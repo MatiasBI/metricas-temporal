@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-21T19:36:02.773Z",
+  "generatedAt": "2026-07-22T17:39:13.284Z",
   "source": {
     "kind": "file",
     "location": "Avisos - 15072026.csv",
@@ -9,12 +9,12 @@
     "physicalRows": 746087,
     "dataRows": 746084,
     "discardedStatuses": {
-      "ANEX": 2
+      "ANEX": 3
     }
   },
   "datasets": {
     "alumbrado": {
-      "file": "metricas-alumbrado-dataset.20260721T193602Z.3bb1634df76d.json.gz",
+      "file": "metricas-alumbrado-dataset.20260722T151732Z.3bb1634df76d.json.gz",
       "rows": 230355,
       "bytes": 2689420,
       "uncompressedBytes": 71566474,
@@ -29,7 +29,7 @@
       }
     },
     "calzada-emui": {
-      "file": "metricas-calzada-emui-dataset.20260721T193602Z.a0628fffb7b0.json.gz",
+      "file": "metricas-calzada-emui-dataset.20260722T151732Z.a0628fffb7b0.json.gz",
       "rows": 180825,
       "bytes": 2227841,
       "uncompressedBytes": 53604918,
@@ -44,7 +44,7 @@
       }
     },
     "mobiliario-urbano": {
-      "file": "metricas-mobiliario-urbano-dataset.20260721T193602Z.7b9ffca74bb0.json.gz",
+      "file": "metricas-mobiliario-urbano-dataset.20260722T151732Z.7b9ffca74bb0.json.gz",
       "rows": 10444,
       "bytes": 151706,
       "uncompressedBytes": 3488663,
@@ -59,7 +59,7 @@
       }
     },
     "pluviales": {
-      "file": "metricas-pluviales-dataset.20260721T193602Z.13eee8c4a0e6.json.gz",
+      "file": "metricas-pluviales-dataset.20260722T151732Z.13eee8c4a0e6.json.gz",
       "rows": 37004,
       "bytes": 479741,
       "uncompressedBytes": 12178524,
@@ -74,7 +74,7 @@
       }
     },
     "vias-peatonales": {
-      "file": "metricas-vias-peatonales-dataset.20260721T193602Z.a9d68d750f79.json.gz",
+      "file": "metricas-vias-peatonales-dataset.20260722T151732Z.a9d68d750f79.json.gz",
       "rows": 176525,
       "bytes": 2310941,
       "uncompressedBytes": 53902592,
@@ -89,7 +89,7 @@
       }
     },
     "paisaje-urbano": {
-      "file": "metricas-paisaje-urbano-dataset.20260721T193602Z.75cd3e58d5a6.json.gz",
+      "file": "metricas-paisaje-urbano-dataset.20260722T151732Z.75cd3e58d5a6.json.gz",
       "rows": 7006,
       "bytes": 113953,
       "uncompressedBytes": 2308220,
@@ -102,15 +102,30 @@
         "resueltos": 2126,
         "denegados": 1547
       }
+    },
+    "ferias": {
+      "file": "metricas-ferias-dataset.20260722T173913Z.8a76dfd0279a.json.gz",
+      "rows": 1564,
+      "bytes": 24877,
+      "uncompressedBytes": 496597,
+      "sha256": "8a76dfd0279a871b967f14515d9c43f6c837e4165e75552c62603bace15fcb47",
+      "uncompressedSha256": "329cd4dad890b15565ee741cd2b1a87d83631a24336032c6bf9dcb294a90274d",
+      "minDate": "2018-07-24",
+      "maxDate": "2026-07-13",
+      "states": {
+        "resueltos": 1028,
+        "denegados": 466,
+        "pendientes": 70
+      }
     }
   },
   "flujoMantenimiento": {
-    "file": "flujo-mantenimiento-dataset.20260721T193602Z.8575b73c2d1f.json.gz",
+    "file": "flujo-mantenimiento-dataset.20260722T172414Z.85ab4ccd6894.json.gz",
     "rows": 453621,
-    "bytes": 56515,
-    "uncompressedBytes": 663213,
-    "sha256": "8575b73c2d1fb152d7aac2d0ba34e2b8f032956736f906b624a115d8336b6e8c",
-    "uncompressedSha256": "5ed63c7f0ce252732a8a0cc7baeaf0c843e45c38f9c615c931b43ffb212c24ed",
+    "bytes": 5092158,
+    "uncompressedBytes": 111954182,
+    "sha256": "85ab4ccd6894b766685992c194fd923784ccf0a6d73c0a60ba69fa9c4899afe4",
+    "uncompressedSha256": "185874a16ac2858d89a09f94274d80fd70b362b935e5d36fbc1795fbd834b46c",
     "minDate": "2016-01-01",
     "maxDate": "2026-07-01",
     "states": {}

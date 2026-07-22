@@ -9,6 +9,7 @@ import styles from "./DashboardSelector.module.css"
 
 type Props = {
   compact?: boolean
+  columns?: 2 | 3
   links?: DashboardLink[]
   eyebrow?: string
   title?: string
@@ -17,6 +18,7 @@ type Props = {
 
 export default function DashboardSelector({
   compact = false,
+  columns = 2,
   links = dashboardLinks,
   eyebrow = "Tableros Ejecutivos",
   title = "Seguimiento estrategico",
@@ -36,7 +38,11 @@ export default function DashboardSelector({
         <p className={styles.panelDescription}>{description}</p>
       </div>
 
-      <div className={styles.buttonGrid}>
+      <div
+        className={`${styles.buttonGrid} ${
+          columns === 3 ? styles.buttonGridThree : ""
+        }`.trim()}
+      >
         {links.map(({ href, title, subtitle, Icon }) => {
           const isActive = pathname === href
 

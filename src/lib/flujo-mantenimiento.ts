@@ -8,6 +8,7 @@ import {
   MANTENIMIENTO_DATASET_KEYS,
   type MantenimientoDatasetKey,
 } from "./metricas-csv"
+import { FLUJO_MOTIVOS_BAJA } from "./flujo-mantenimiento-csv"
 
 export type FlujoMonthSnapshot = {
   mes: string
@@ -19,13 +20,31 @@ export type FlujoMonthSnapshot = {
   motivosBaja: Record<string, number>
   ingresosPorPrestacion: Record<string, number>
   pendientesPorPrestacion: Record<string, number>
+  ingresosPorComuna: Record<string, number>
+  ingresosPorBarrio: Record<string, number>
+  ingresosPorHora: Record<string, number>
+  prestacionesPorHora: Record<string, Record<string, number>>
 }
 
 type FlujoSnapshot = {
-  schemaVersion: 1
+  schemaVersion: 2
   generatedAt: string
   records: number
   areas: Record<MantenimientoDatasetKey, FlujoMonthSnapshot[]>
+  rows: FlujoSnapshotRow[]
+}
+
+type FlujoSnapshotRow = {
+  area: MantenimientoDatasetKey
+  ingresoMes: number
+  bajaMes: number | null
+  horaIngreso: string | null
+  comuna: string | null
+  barrio: string | null
+  categoria: string
+  prestacion: string
+  statusUsuario: string
+  estado: "resueltos" | "pendientes" | "denegados"
 }
 
 type ManifestEntry = {
@@ -43,6 +62,10 @@ export type FlujoFilters = {
   years?: string[]
   months?: string[]
   areas?: string[]
+  prestacion?: string[]
+  categoria?: string[]
+  comuna?: string[]
+  barrio?: string[]
 }
 
 export type FlujoMantenimientoPayload = {
@@ -84,13 +107,41 @@ export type FlujoMantenimientoPayload = {
     prestacion: string
     cantidad: number
   }>
+  por_comuna: Record<
+    string,
+    { total: number; resueltos: number; pendientes: number; denegados: number }
+  >
+  por_barrio: Array<{
+    barrio: string
+    cantidad: number
+    porcentaje: number
+  }>
+  barrio_totales: Record<string, number>
+  por_hora: Array<{
+    hora: string
+    cantidad: number
+    porcentaje: number
+    top_prestaciones: Array<{
+      prestacion: string
+      cantidad: number
+      porcentaje: number
+    }>
+  }>
   filtros: {
     years: string[]
     months: string[]
     areas: Array<{ value: MantenimientoDatasetKey; label: string }>
+    prestaciones: string[]
+    categorias: string[]
+    comunas: string[]
+    barrios: string[]
     selectedYears: string[]
     selectedMonths: string[]
     selectedAreas: MantenimientoDatasetKey[]
+    selectedPrestaciones: string[]
+    selectedCategorias: string[]
+    selectedComunas: string[]
+    selectedBarrios: string[]
   }
 }
 
@@ -131,7 +182,7 @@ async function deserializeSnapshot(input: Buffer, entry: ManifestEntry) {
 
   const raw = (await gunzip(input)).toString("utf8")
   const snapshot = JSON.parse(raw) as FlujoSnapshot
-  if (snapshot.schemaVersion !== 1) {
+  if (snapshot.schemaVersion !== 2) {
     throw new Error(`Version de flujo no soportada: ${snapshot.schemaVersion}`)
   }
   return snapshot
@@ -199,13 +250,8 @@ async function loadSnapshot() {
   return snapshotPromise
 }
 
-function incrementRecord(
-  target: Record<string, number>,
-  source: Record<string, number>
-) {
-  for (const [key, value] of Object.entries(source)) {
-    target[key] = (target[key] ?? 0) + value
-  }
+function incrementValue(target: Record<string, number>, key: string) {
+  target[key] = (target[key] ?? 0) + 1
 }
 
 function topEntries(record: Record<string, number>, limit = 8) {
@@ -225,6 +271,17 @@ function validAreas(values: string[] | undefined) {
   return selected.length ? selected : MANTENIMIENTO_DATASET_KEYS
 }
 
+function monthIndex(value: string) {
+  const [year, month] = value.split("-").map(Number)
+  return year * 12 + month - 1
+}
+
+function formatMonth(index: number) {
+  const year = Math.floor(index / 12)
+  const month = (index % 12) + 1
+  return `${year}-${String(month).padStart(2, "0")}`
+}
+
 export async function getFlujoMantenimientoData(
   filters: FlujoFilters = {}
 ): Promise<FlujoMantenimientoPayload> {
@@ -232,6 +289,7 @@ export async function getFlujoMantenimientoData(
   const allMonths = snapshot.areas.alumbrado.map((row) => row.mes)
   const allYears = Array.from(new Set(allMonths.map((month) => month.slice(0, 4))))
   const selectedAreas = validAreas(filters.areas)
+  const selectedAreaSet = new Set(selectedAreas)
   const requestedMonths = new Set(filters.months ?? [])
   const requestedYears = new Set(filters.years ?? [])
   const selectedMonths = allMonths.filter((month) => {
@@ -241,59 +299,116 @@ export async function getFlujoMantenimientoData(
   })
   const selectedMonthSet = new Set(selectedMonths)
   const stockMonth = selectedMonths.at(-1) ?? null
-  const byAreaMonth = new Map(
-    MANTENIMIENTO_DATASET_KEYS.map((area) => [
-      area,
-      new Map(snapshot.areas[area].map((row) => [row.mes, row])),
-    ])
-  )
+  const stockMonthIndex = stockMonth ? monthIndex(stockMonth) : null
+  const selectedPrestaciones = new Set(filters.prestacion ?? [])
+  const selectedCategorias = new Set(filters.categoria ?? [])
+  const selectedComunas = new Set(filters.comuna ?? [])
+  const selectedBarrios = new Set(filters.barrio ?? [])
 
   let ingresos = 0
   let bajas = 0
   let resueltos = 0
   let denegados = 0
+  const monthlyIngresos = new Map<number, number>()
+  const monthlyBajas = new Map<number, number>()
+  const pendingDeltas = new Map<number, number>()
   const motivosBaja: Record<string, number> = {}
   const ingresosPorPrestacion: Record<string, number> = {}
+  const pendientesPorPrestacion: Record<string, number> = {}
+  const ingresosPorComuna: Record<string, number> = {}
+  const ingresosPorBarrio: Record<string, number> = {}
+  const ingresosPorHora: Record<string, number> = {}
+  const prestacionesPorHora: Record<string, Record<string, number>> = {}
+  const pendientesPorArea: Partial<Record<MantenimientoDatasetKey, number>> = {}
+  const prestaciones = new Set<string>()
+  const categorias = new Set<string>()
+  const comunas = new Set<string>()
+  const barrios = new Set<string>()
 
-  for (const area of selectedAreas) {
-    for (const row of snapshot.areas[area]) {
-      if (!selectedMonthSet.has(row.mes)) continue
-      ingresos += row.ingresos
-      bajas += row.bajas
-      resueltos += row.resueltos
-      denegados += row.denegados
-      incrementRecord(motivosBaja, row.motivosBaja)
-      incrementRecord(ingresosPorPrestacion, row.ingresosPorPrestacion)
+  for (const row of snapshot.rows) {
+    if (!selectedAreaSet.has(row.area)) continue
+
+    prestaciones.add(row.prestacion)
+    categorias.add(row.categoria)
+    if (row.comuna) comunas.add(row.comuna)
+    if (row.barrio) barrios.add(row.barrio)
+
+    if (selectedPrestaciones.size && !selectedPrestaciones.has(row.prestacion)) continue
+    if (selectedCategorias.size && !selectedCategorias.has(row.categoria)) continue
+    if (selectedComunas.size && !selectedComunas.has(row.comuna ?? "")) continue
+    if (selectedBarrios.size && !selectedBarrios.has(row.barrio ?? "")) continue
+
+    const contributesToStock = row.estado === "pendientes" || row.bajaMes !== null
+    if (contributesToStock) {
+      pendingDeltas.set(
+        row.ingresoMes,
+        (pendingDeltas.get(row.ingresoMes) ?? 0) + 1
+      )
+      if (row.bajaMes !== null) {
+        pendingDeltas.set(row.bajaMes, (pendingDeltas.get(row.bajaMes) ?? 0) - 1)
+      }
     }
+
+    if (selectedMonthSet.has(formatMonth(row.ingresoMes))) {
+      ingresos += 1
+      monthlyIngresos.set(
+        row.ingresoMes,
+        (monthlyIngresos.get(row.ingresoMes) ?? 0) + 1
+      )
+      incrementValue(ingresosPorPrestacion, row.prestacion)
+      if (row.comuna) incrementValue(ingresosPorComuna, row.comuna)
+      if (row.barrio) incrementValue(ingresosPorBarrio, row.barrio)
+      if (row.horaIngreso) {
+        incrementValue(ingresosPorHora, row.horaIngreso)
+        prestacionesPorHora[row.horaIngreso] ??= {}
+        incrementValue(prestacionesPorHora[row.horaIngreso], row.prestacion)
+      }
+    }
+
+    if (row.bajaMes !== null && selectedMonthSet.has(formatMonth(row.bajaMes))) {
+      bajas += 1
+      monthlyBajas.set(row.bajaMes, (monthlyBajas.get(row.bajaMes) ?? 0) + 1)
+      if (row.estado === "resueltos") resueltos += 1
+      if (row.estado === "denegados") denegados += 1
+      const motivo = FLUJO_MOTIVOS_BAJA[row.statusUsuario] ?? row.statusUsuario
+      incrementValue(motivosBaja, motivo)
+    }
+
+    const isPendingAtClose =
+      stockMonthIndex !== null &&
+      row.ingresoMes <= stockMonthIndex &&
+      (row.estado === "pendientes" ||
+        (row.bajaMes !== null && row.bajaMes > stockMonthIndex))
+
+    if (isPendingAtClose) {
+      pendientesPorArea[row.area] = (pendientesPorArea[row.area] ?? 0) + 1
+      incrementValue(pendientesPorPrestacion, row.prestacion)
+    }
+  }
+
+  let runningStock = 0
+  const stockByMonth = new Map<number, number>()
+  for (const month of allMonths) {
+    const index = monthIndex(month)
+    runningStock += pendingDeltas.get(index) ?? 0
+    stockByMonth.set(index, Math.max(0, runningStock))
   }
 
   const porMes = selectedMonths.map((mes) => {
-    const result = { mes, ingresos: 0, bajas: 0, pendientes: 0 }
-    for (const area of selectedAreas) {
-      const row = byAreaMonth.get(area)?.get(mes)
-      if (!row) continue
-      result.ingresos += row.ingresos
-      result.bajas += row.bajas
-      result.pendientes += row.pendientes
+    const index = monthIndex(mes)
+    return {
+      mes,
+      ingresos: monthlyIngresos.get(index) ?? 0,
+      bajas: monthlyBajas.get(index) ?? 0,
+      pendientes: stockByMonth.get(index) ?? 0,
     }
-    return result
   })
 
-  const pendientesPorArea = selectedAreas.map((area) => ({
+  const pendientesPorAreaRows = selectedAreas.map((area) => ({
     area: FLUJO_AREA_LABELS[area],
-    cantidad: stockMonth ? byAreaMonth.get(area)?.get(stockMonth)?.pendientes ?? 0 : 0,
+    cantidad: pendientesPorArea[area] ?? 0,
   }))
-  const pendientes = pendientesPorArea.reduce((sum, row) => sum + row.cantidad, 0)
-  const pendientesPorPrestacion: Record<string, number> = {}
-
-  if (stockMonth) {
-    for (const area of selectedAreas) {
-      incrementRecord(
-        pendientesPorPrestacion,
-        byAreaMonth.get(area)?.get(stockMonth)?.pendientesPorPrestacion ?? {}
-      )
-    }
-  }
+  const pendientes = pendientesPorAreaRows.reduce((sum, row) => sum + row.cantidad, 0)
 
   const totalBajasClasificadas = resueltos + denegados
   const totalMotivos = Object.values(motivosBaja).reduce((sum, value) => sum + value, 0)
@@ -326,7 +441,7 @@ export async function getFlujoMantenimientoData(
       cantidad,
       porcentaje: percentage(cantidad, totalMotivos),
     })),
-    pendientes_por_area: pendientesPorArea
+    pendientes_por_area: pendientesPorAreaRows
       .map((row) => ({
         ...row,
         porcentaje: percentage(row.cantidad, pendientes),
@@ -338,6 +453,32 @@ export async function getFlujoMantenimientoData(
     top_pendientes_prestacion: topEntries(pendientesPorPrestacion).map(
       ({ name, cantidad }) => ({ prestacion: name, cantidad })
     ),
+    por_comuna: Object.fromEntries(
+      Object.entries(ingresosPorComuna).map(([comuna, total]) => [
+        comuna,
+        { total, resueltos: 0, pendientes: 0, denegados: 0 },
+      ])
+    ),
+    por_barrio: topEntries(ingresosPorBarrio).map(({ name, cantidad }) => ({
+      barrio: name,
+      cantidad,
+      porcentaje: percentage(cantidad, ingresos),
+    })),
+    barrio_totales: ingresosPorBarrio,
+    por_hora: Object.entries(ingresosPorHora)
+      .map(([hora, cantidad]) => ({
+        hora,
+        cantidad,
+        porcentaje: percentage(cantidad, ingresos),
+        top_prestaciones: topEntries(prestacionesPorHora[hora] ?? {}, 2).map(
+          ({ name, cantidad: prestacionCantidad }) => ({
+            prestacion: name,
+            cantidad: prestacionCantidad,
+            porcentaje: percentage(prestacionCantidad, cantidad),
+          })
+        ),
+      }))
+      .sort((a, b) => a.hora.localeCompare(b.hora)),
     filtros: {
       years: allYears,
       months: allMonths,
@@ -345,9 +486,17 @@ export async function getFlujoMantenimientoData(
         value,
         label: FLUJO_AREA_LABELS[value],
       })),
+      prestaciones: Array.from(prestaciones).sort((a, b) => a.localeCompare(b)),
+      categorias: Array.from(categorias).sort((a, b) => a.localeCompare(b)),
+      comunas: Array.from(comunas).sort((a, b) => a.localeCompare(b)),
+      barrios: Array.from(barrios).sort((a, b) => a.localeCompare(b)),
       selectedYears: filters.years ?? [],
       selectedMonths: filters.months ?? [],
       selectedAreas,
+      selectedPrestaciones: filters.prestacion ?? [],
+      selectedCategorias: filters.categoria ?? [],
+      selectedComunas: filters.comuna ?? [],
+      selectedBarrios: filters.barrio ?? [],
     },
   }
 }

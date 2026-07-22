@@ -1,28 +1,29 @@
 import { getMetricasData, warmMetricasCache } from "../../../lib/metricas"
-import { maintenanceDashboardLinks } from "../../../lib/dashboardLinks"
 import MetricasScreen from "../screen"
 
 export const dynamic = "force-dynamic"
 
-warmMetricasCache()
+warmMetricasCache("ferias")
 
 async function getData() {
   try {
-    return await getMetricasData("alumbrado")
+    return await getMetricasData("ferias")
   } catch (error) {
     console.error(error)
     return null
   }
 }
 
-export default async function AlumbradoPage() {
+export default async function FeriasPage() {
   const data = await getData()
+
   return (
     <MetricasScreen
       data={data}
-      apiPath="/api/metricas"
-      dashboardSelectorLinks={maintenanceDashboardLinks}
-      datasetKey="alumbrado"
+      apiPath="/api/ferias"
+      subtitle="Ferias - Seguimiento operativo"
+      externalUrl=""
+      showDashboardSelector={false}
     />
   )
 }

@@ -6,7 +6,13 @@ interface Item {
 
 const fmt = (n: number) => n.toLocaleString("es-AR")
 
-export default function MotivosBajaChart({ items }: { items: Item[] }) {
+export default function MotivosBajaChart({
+  items,
+  description = "Principales razones de cierre denegado.",
+}: {
+  items: Item[]
+  description?: string
+}) {
   const max = Math.max(...items.map((item) => item.cantidad), 1)
 
   return (
@@ -19,7 +25,7 @@ export default function MotivosBajaChart({ items }: { items: Item[] }) {
           Motivos de bajas
         </h3>
         <p className="text-xs text-slate-500 sm:text-sm">
-          Principales razones de cierre denegado.
+          {description}
         </p>
       </div>
 

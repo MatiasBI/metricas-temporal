@@ -164,6 +164,7 @@ const XLSB_PATHS: Record<MetricasDatasetKey, string> = {
   pluviales: "",
   "vias-peatonales": "",
   "paisaje-urbano": process.env.METRICAS_PAISAJE_URBANO_XLSB_PATH || "",
+  ferias: "",
 }
 
 type EtlManifest = {
@@ -186,6 +187,7 @@ const XLSB_URLS: Record<MetricasDatasetKey, string | undefined> = {
   pluviales: undefined,
   "vias-peatonales": undefined,
   "paisaje-urbano": process.env.METRICAS_PAISAJE_URBANO_XLSB_URL,
+  ferias: undefined,
 }
 const JSON_SNAPSHOT_DIR = process.env.METRICAS_JSON_DIR
 const JSON_SNAPSHOT_BASE_URL = process.env.METRICAS_JSON_BASE_URL
@@ -199,6 +201,7 @@ const CACHE_FILE_NAMES: Record<MetricasDatasetKey, string> = {
   pluviales: "metricas-pluviales-dataset.json",
   "vias-peatonales": "metricas-vias-peatonales-dataset.json",
   "paisaje-urbano": "metricas-paisaje-urbano-dataset.json",
+  ferias: "metricas-ferias-dataset.json",
 }
 
 const DEMO_FILE_NAMES: Record<MetricasDatasetKey, string> = {
@@ -208,6 +211,7 @@ const DEMO_FILE_NAMES: Record<MetricasDatasetKey, string> = {
   pluviales: "pluviales-dataset.json",
   "vias-peatonales": "vias-peatonales-dataset.json",
   "paisaje-urbano": "paisaje-urbano-dataset.json",
+  ferias: "ferias-dataset.json",
 }
 
 const MESES_ES = [
@@ -379,6 +383,10 @@ function getCsvDatasetKey(row: CsvRow): MetricasDatasetKey | null {
   const prestacion = normalizeText(get(row, COLUMN.prestacion))
   const grupo = normalizeText(get(row, COLUMN.grupoPlanificacion)).toUpperCase()
 
+  if (grupo === "FM1") {
+    return "ferias"
+  }
+
   if (
     grupo.startsWith("AL") &&
     !ALUMBRADO_GRUPOS_EXCLUIDOS.has(grupo) &&
@@ -409,7 +417,7 @@ function normalizeCsvRow(row: CsvRow, datasetKey: MetricasDatasetKey): Normalize
     comuna: normalizeComuna(get(row, COLUMN.comuna)),
     barrio: normalizeText(get(row, COLUMN.barrio)) || null,
     categoria:
-      datasetKey === "alumbrado"
+      datasetKey === "alumbrado" || datasetKey === "ferias"
         ? prestacion || null
         : normalizeText(get(row, COLUMN.tipo)) || null,
     prestacion: prestacion || null,
@@ -495,6 +503,10 @@ function getXlsbDatasetKey(
   prestacion: string,
   grupoPlanificacion: string
 ): MetricasDatasetKey | null {
+  if (grupoPlanificacion === "FM1") {
+    return "ferias"
+  }
+
   if (
     grupoPlanificacion.startsWith("AL") &&
     !ALUMBRADO_GRUPOS_EXCLUIDOS.has(grupoPlanificacion) &&
@@ -600,7 +612,7 @@ function buildXlsbDatasetSnapshot(
       comuna,
       barrio: barrio || null,
       categoria:
-        datasetKey === "alumbrado"
+        datasetKey === "alumbrado" || datasetKey === "ferias"
           ? prestacion
           : area || prestacion,
       prestacion,

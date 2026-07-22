@@ -5,10 +5,11 @@ export type MetricasDatasetKey =
   | "pluviales"
   | "vias-peatonales"
   | "paisaje-urbano"
+  | "ferias"
 
 export type MantenimientoDatasetKey = Exclude<
   MetricasDatasetKey,
-  "paisaje-urbano"
+  "paisaje-urbano" | "ferias"
 >
 
 export const METRICAS_DATASET_KEYS: MetricasDatasetKey[] = [
@@ -18,6 +19,7 @@ export const METRICAS_DATASET_KEYS: MetricasDatasetKey[] = [
   "pluviales",
   "vias-peatonales",
   "paisaje-urbano",
+  "ferias",
 ]
 
 export const MANTENIMIENTO_DATASET_KEYS: MantenimientoDatasetKey[] = [
@@ -80,7 +82,7 @@ const ALUMBRADO_PRESTACIONES = new Set([
 
 const ALUMBRADO_GRUPOS_EXCLUIDOS = new Set(["ALU", "ALD"])
 
-const GP_TO_MAINTENANCE_DATASET: Record<string, MetricasDatasetKey> = {
+const GP_TO_MAINTENANCE_DATASET: Record<string, MantenimientoDatasetKey> = {
   CA1: "calzada-emui",
   CA2: "calzada-emui",
   CA3: "calzada-emui",
@@ -296,6 +298,10 @@ function getDatasetKey(
   prestacion: string,
   grupoPlanificacion: string
 ): MetricasDatasetKey | null {
+  if (grupoPlanificacion === "FM1") {
+    return "ferias"
+  }
+
   if (
     grupoPlanificacion.startsWith("AL") &&
     !ALUMBRADO_GRUPOS_EXCLUIDOS.has(grupoPlanificacion) &&

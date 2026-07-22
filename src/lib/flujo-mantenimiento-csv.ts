@@ -10,6 +10,10 @@ export type FlujoCsvRow = {
   datasetKey: MantenimientoDatasetKey
   fechaIngreso: Date
   fechaBaja: Date | null
+  horaIngreso: string | null
+  comuna: string | null
+  barrio: string | null
+  categoria: string
   prestacion: string
   statusUsuario: string
   estado: FlujoEstado
@@ -18,13 +22,21 @@ export type FlujoCsvRow = {
 const COLUMN = {
   clase: 1,
   fechaIngreso: 2,
+  horaIngreso: 3,
   statusUsuario: 4,
   grupoPlanificacion: 5,
+  barrio: 6,
+  comuna: 12,
   prestacion: 13,
   fechaBaja: 14,
 } as const
 
 const CLASES_MANTENIMIENTO = new Set(["SU", "RE"])
+const VALID_COMUNAS = new Set(
+  Array.from({ length: 15 }, (_, index) =>
+    `C${String(index + 1).padStart(2, "0")}`
+  )
+)
 
 const STATUS_MAP: Record<string, FlujoEstado> = {
   REOK: "resueltos",
@@ -65,6 +77,23 @@ function normalizeText(value: string) {
 
 function get(row: string[], index: number) {
   return row[index] ?? ""
+}
+
+function normalizeComuna(value: string) {
+  const comuna = normalizeText(value).toUpperCase()
+  return VALID_COMUNAS.has(comuna) ? comuna : null
+}
+
+function parseTime(value: string) {
+  const raw = normalizeText(value).padStart(6, "0")
+  if (!/^\d{6}$/.test(raw)) return null
+
+  const hours = Number(raw.slice(0, 2))
+  const minutes = Number(raw.slice(2, 4))
+  const seconds = Number(raw.slice(4, 6))
+  if (hours > 23 || minutes > 59 || seconds > 59) return null
+
+  return `${String(hours).padStart(2, "0")}:00`
 }
 
 function parseDate(value: string) {
@@ -116,6 +145,10 @@ export function parseFlujoMantenimientoCsvRow(
     datasetKey,
     fechaIngreso,
     fechaBaja,
+    horaIngreso: parseTime(get(rawRow, COLUMN.horaIngreso)),
+    comuna: normalizeComuna(get(rawRow, COLUMN.comuna)),
+    barrio: normalizeText(get(rawRow, COLUMN.barrio)) || null,
+    categoria: prestacion,
     prestacion,
     statusUsuario,
     estado,

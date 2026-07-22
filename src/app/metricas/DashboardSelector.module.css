@@ -49,6 +49,10 @@
   margin-inline: auto;
 }
 
+.buttonGridThree {
+  max-width: 100%;
+}
+
 .quickAccess {
   width: 100%;
   min-height: 116px;
@@ -133,5 +137,9 @@
 
   .buttonGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .buttonGridThree {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

@@ -177,7 +177,10 @@ export default function FilterDrawer({
         >
           <Box sx={{ fontSize: 14, fontWeight: 700, mb: 1.5 }}>Periodo</Box>
           {years.map((year) => {
-            const yearMonths = monthsByYear[year]
+            const yearMonths = monthsByYear[year] ?? []
+            const availableMonths = MONTHS.filter((month) =>
+              yearMonths.includes(`${year}-${month.value}`)
+            )
             const selectedCount = yearMonths.filter((month) =>
               selectedMonths.includes(month)
             ).length
@@ -241,7 +244,7 @@ export default function FilterDrawer({
                       flexDirection: "column",
                     }}
                   >
-                    {MONTHS.map((month) => {
+                    {availableMonths.map((month) => {
                       const monthKey = `${year}-${month.value}`
                       return (
                         <FormControlLabel

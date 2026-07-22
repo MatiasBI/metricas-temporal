@@ -1,12 +1,12 @@
 import { maintenanceDashboardLinks } from "../../lib/dashboardLinks"
 import {
   getMetricasData,
-  type MetricasDatasetKey,
 } from "../../lib/metricas"
+import type { MantenimientoDatasetKey } from "../../lib/metricas-csv"
 import MetricasScreen from "./screen"
 
 type Props = {
-  datasetKey: MetricasDatasetKey
+  datasetKey: MantenimientoDatasetKey
   apiPath: string
   subtitle: string
 }
@@ -31,6 +31,7 @@ export default async function MantenimientoDashboardPage({
       title="Ministerio de Espacio Publico"
       subtitle={subtitle}
       dashboardSelectorLinks={maintenanceDashboardLinks}
+      datasetKey={datasetKey}
     />
   )
 }
