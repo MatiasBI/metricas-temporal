@@ -32,7 +32,8 @@ const MODE_COPY: Record<MetricMode, { title: string; description: string }> = {
 }
 
 export default function MetricVersionSwitch({ activeMode, area }: Props) {
-  const currentHref = area === "all" ? "/metricas" : ORIGINAL_ROUTES[area]
+  const currentHref =
+    area === "all" ? "/metricas/mantenimiento" : ORIGINAL_ROUTES[area]
   const flowHref =
     area === "all"
       ? "/metricas/flujo-mantenimiento"

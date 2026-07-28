@@ -10,9 +10,12 @@ import * as XLSX from "xlsx"
 
 import { BARRIOS_BY_COMUNA } from "./barrios"
 import {
+  getMantenimientoDatasetKey,
+  MANTENIMIENTO_DATASET_KEYS,
   METRICAS_DATASET_KEYS,
   METRICAS_CSV_COLUMN_COUNT,
   parseMetricasCsvRow,
+  type MantenimientoDatasetKey,
   type MetricasDatasetKey,
 } from "./metricas-csv"
 
@@ -117,6 +120,11 @@ export type MetricasPayload = {
     cantidad: number
     porcentaje: number
   }>
+  top_ingresos_por_area: Array<{
+    area: string
+    prestacion: string
+    cantidad: number
+  }>
   por_barrio: Array<{
     barrio: string
     cantidad: number
@@ -151,6 +159,13 @@ export type MetricasPayload = {
 }
 
 const CACHE_TTL_MS = 15 * 60 * 1000
+const MANTENIMIENTO_AREA_LABELS: Record<MantenimientoDatasetKey, string> = {
+  alumbrado: "Alumbrado",
+  "calzada-emui": "Calzada - EMUI",
+  "mobiliario-urbano": "Mobiliario Urbano",
+  pluviales: "Pluviales",
+  "vias-peatonales": "Vías Peatonales",
+}
 const CSV_REFRESH_TTL_MS = Number(
   process.env.METRICAS_CSV_REFRESH_TTL_MS || 24 * 60 * 60 * 1000
 )
@@ -1418,6 +1433,7 @@ export function crearResumenVacio(
     motivos_baja: [],
     top_ingresos_prestacion: [],
     top_pendientes_prestacion: [],
+    top_ingresos_por_area: [],
     por_barrio: [],
     por_hora: [],
     barrio_totales: {},
@@ -1440,6 +1456,11 @@ const datasetCache = new Map<
     snapshot: DatasetSnapshot
   }
 >()
+
+let mantenimientoDatasetCache: {
+  expiresAt: number
+  snapshot: DatasetSnapshot
+} | null = null
 
 const responseCache = new Map<
   string,
@@ -1532,13 +1553,38 @@ async function getCachedDataset(datasetKey: MetricasDatasetKey) {
   )
 }
 
+async function getCachedMantenimientoDataset() {
+  if (
+    mantenimientoDatasetCache &&
+    mantenimientoDatasetCache.expiresAt > Date.now()
+  ) {
+    return mantenimientoDatasetCache.snapshot
+  }
+
+  const datasets = await Promise.all(
+    MANTENIMIENTO_DATASET_KEYS.map((datasetKey) =>
+      getCachedDataset(datasetKey)
+    )
+  )
+  const snapshot = buildDatasetSnapshot(
+    datasets.flatMap((dataset) => dataset.rows)
+  )
+
+  mantenimientoDatasetCache = {
+    expiresAt: Date.now() + CACHE_TTL_MS,
+    snapshot,
+  }
+
+  return snapshot
+}
+
 export function warmMetricasCache(datasetKey: MetricasDatasetKey = "alumbrado") {
   void getCachedDataset(datasetKey).catch((error) => {
     console.error("Error warming metricas cache", error)
   })
 }
 
-function buildCacheKey(datasetKey: MetricasDatasetKey, filters: FiltrosMetricas) {
+function buildCacheKey(datasetKey: string, filters: FiltrosMetricas) {
   return [
     datasetKey,
     filters.years?.join(",") || "all",
@@ -1626,11 +1672,12 @@ function formatHoraBucket(value: string | null) {
   return `${hours.padStart(2, "0")}:00`
 }
 
-export async function getMetricasData(
-  datasetKey: MetricasDatasetKey = "alumbrado",
-  filters: FiltrosMetricas = {}
+async function buildMetricasData(
+  dataset: DatasetSnapshot,
+  cacheKey: string,
+  filters: FiltrosMetricas = {},
+  includeAreaLeaders = false
 ): Promise<MetricasPayload> {
-  const cacheKey = buildCacheKey(datasetKey, filters)
   const now = Date.now()
   const cachedResponse = responseCache.get(cacheKey)
 
@@ -1638,7 +1685,6 @@ export async function getMetricasData(
     return cachedResponse.payload
   }
 
-  const dataset = await getCachedDataset(datasetKey)
   const rowsFiltradas = filterDatasetRows(dataset.rows, filters)
 
   if (!rowsFiltradas.length) {
@@ -1665,6 +1711,9 @@ export async function getMetricasData(
   > = {}
   const motivosBajaMap: Record<string, number> = {}
   const ingresosPrestacionMap: Record<string, number> = {}
+  const ingresosPorAreaMap: Partial<
+    Record<MantenimientoDatasetKey, Record<string, number>>
+  > = {}
   const pendientesPrestacionMap: Record<string, number> = {}
   const porBarrioMap: Record<string, number> = {}
   const porHoraMap: Record<string, number> = {}
@@ -1708,6 +1757,15 @@ export async function getMetricasData(
     if (prestacion) {
       ingresosPrestacionMap[prestacion] =
         (ingresosPrestacionMap[prestacion] ?? 0) + 1
+
+      if (includeAreaLeaders && row.grupoPlanificacion) {
+        const area = getMantenimientoDatasetKey(row.grupoPlanificacion)
+        if (area) {
+          ingresosPorAreaMap[area] ??= {}
+          ingresosPorAreaMap[area]![prestacion] =
+            (ingresosPorAreaMap[area]![prestacion] ?? 0) + 1
+        }
+      }
     }
 
     if (estado === "pendientes" && prestacion) {
@@ -1818,6 +1876,24 @@ export async function getMetricasData(
       }))
       .sort((a, b) => b.cantidad - a.cantidad)
       .slice(0, 5),
+    top_ingresos_por_area: includeAreaLeaders
+      ? MANTENIMIENTO_DATASET_KEYS.flatMap((area) => {
+          const leader = Object.entries(ingresosPorAreaMap[area] ?? {}).sort(
+            ([prestacionA, cantidadA], [prestacionB, cantidadB]) =>
+              cantidadB - cantidadA || prestacionA.localeCompare(prestacionB)
+          )[0]
+
+          return leader
+            ? [
+                {
+                  area: MANTENIMIENTO_AREA_LABELS[area],
+                  prestacion: leader[0],
+                  cantidad: leader[1],
+                },
+              ]
+            : []
+        })
+      : [],
     por_barrio: Object.entries(porBarrioMap)
       .map(([barrio, cantidad]) => ({
         barrio,
@@ -1869,11 +1945,35 @@ export async function getMetricasData(
   return payload
 }
 
-export async function getMetricasExportRows(
+export async function getMetricasData(
   datasetKey: MetricasDatasetKey = "alumbrado",
   filters: FiltrosMetricas = {}
-): Promise<MetricasExportRow[]> {
+): Promise<MetricasPayload> {
   const dataset = await getCachedDataset(datasetKey)
+  return buildMetricasData(
+    dataset,
+    buildCacheKey(datasetKey, filters),
+    filters
+  )
+}
+
+export async function getMantenimientoMetricasData(
+  filters: FiltrosMetricas = {}
+): Promise<MetricasPayload> {
+  const dataset = await getCachedMantenimientoDataset()
+
+  return buildMetricasData(
+    dataset,
+    buildCacheKey("mantenimiento", filters),
+    filters,
+    true
+  )
+}
+
+function buildMetricasExportRows(
+  dataset: DatasetSnapshot,
+  filters: FiltrosMetricas
+) {
   const rowsFiltradas = filterDatasetRows(dataset.rows, filters)
 
   return rowsFiltradas.map((row) => ({
@@ -1890,4 +1990,19 @@ export async function getMetricasExportRows(
     motivo_denegado: row.motivoDenegado ?? "",
     ult_mes: row.ultMes ?? "",
   }))
+}
+
+export async function getMetricasExportRows(
+  datasetKey: MetricasDatasetKey = "alumbrado",
+  filters: FiltrosMetricas = {}
+): Promise<MetricasExportRow[]> {
+  const dataset = await getCachedDataset(datasetKey)
+  return buildMetricasExportRows(dataset, filters)
+}
+
+export async function getMantenimientoMetricasExportRows(
+  filters: FiltrosMetricas = {}
+): Promise<MetricasExportRow[]> {
+  const dataset = await getCachedMantenimientoDataset()
+  return buildMetricasExportRows(dataset, filters)
 }

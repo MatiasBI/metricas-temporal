@@ -18,6 +18,7 @@ import IngresosPorBarrioChart from "./components/IngresosPorBarrioChart"
 import IngresosPorHoraChart from "./components/IngresosPorHoraChart"
 import MotivosBajaChart from "./components/MotivosBajaChart"
 import TopIngresosPrestacionChart from "./components/TopIngresosPrestacionChart"
+import TopIngresosPorAreaTable from "./components/TopIngresosPorAreaTable"
 import TopPendientesPrestacionChart from "./components/TopPendientesPrestacionChart"
 import FlujoBajasChart from "./components/FlujoBajasChart"
 import formatComuna from "./components/formatComuna"
@@ -68,6 +69,11 @@ interface MetricasData {
     cantidad: number
     porcentaje: number
   }>
+  top_ingresos_por_area: Array<{
+    area: string
+    prestacion: string
+    cantidad: number
+  }>
   por_barrio: Array<{
     barrio: string
     cantidad: number
@@ -109,7 +115,7 @@ interface Props {
   externalUrl?: string
   externalLabel?: string
   dashboardSelectorLinks?: DashboardLink[]
-  datasetKey?: MantenimientoDatasetKey
+  datasetKey?: MantenimientoDatasetKey | "all"
   showDashboardSelector?: boolean
 }
 
@@ -608,6 +614,14 @@ export default function MetricasScreen({
             ) : null}
 
             <KPICards resumen={dashboardData.resumen} />
+
+            {datasetKey === "all" ? (
+              <div className="metricas-surface-card">
+                <TopIngresosPorAreaTable
+                  items={dashboardData.top_ingresos_por_area}
+                />
+              </div>
+            ) : null}
 
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-5 xl:items-stretch">
               <div className="grid grid-cols-1 gap-4 xl:col-span-3">

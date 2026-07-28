@@ -10,7 +10,7 @@ function escapeHtml(value: string) {
 
 export function buildMetricasExcelContent(
   rows: MetricasExportRow[],
-  datasetKey: MetricasDatasetKey
+  datasetKey: MetricasDatasetKey | "mantenimiento"
 ) {
   const headers = [
     "Aviso",

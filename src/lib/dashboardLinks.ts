@@ -1,4 +1,5 @@
 import LightbulbOutlinedIcon from "@mui/icons-material/LightbulbOutlined"
+import AppsRoundedIcon from "@mui/icons-material/AppsRounded"
 import ConstructionOutlinedIcon from "@mui/icons-material/ConstructionOutlined"
 import DirectionsWalkOutlinedIcon from "@mui/icons-material/DirectionsWalkOutlined"
 import ParkOutlinedIcon from "@mui/icons-material/ParkOutlined"
@@ -16,6 +17,14 @@ export type DashboardLink = {
 }
 
 export const maintenanceDashboardLinks: DashboardLink[] = [
+  {
+    href: "/metricas/mantenimiento",
+    title: "Todas las áreas",
+    subtitle: "Vista consolidada de mantenimiento",
+    description:
+      "Indicadores consolidados de todas las direcciones generales de mantenimiento.",
+    Icon: AppsRoundedIcon,
+  },
   {
     href: "/metricas/alumbrado",
     title: "Alumbrado",
@@ -88,7 +97,7 @@ export const dashboardLinks: DashboardLink[] = [
 
 export const subsecretariaLinks: DashboardLink[] = [
   {
-    href: "/metricas/alumbrado",
+    href: "/metricas/mantenimiento",
     title: "Subsecretaria de Mantenimiento",
     subtitle: "",
     description:
