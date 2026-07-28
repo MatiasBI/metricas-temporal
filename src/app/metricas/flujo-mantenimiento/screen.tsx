@@ -142,7 +142,7 @@ export default function FlujoMantenimientoScreen({ initialData, initialArea }: P
     initialArea
   )
   const [selectedYears, setSelectedYears] = useState<string[]>(
-    initialData?.filtros.selectedYears ?? ["2024"]
+    initialData?.filtros.selectedYears ?? []
   )
   const [selectedMonths, setSelectedMonths] = useState<string[]>(
     initialData?.filtros.selectedMonths ?? []

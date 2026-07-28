@@ -24,7 +24,6 @@ export default async function FlujoMantenimientoPage({ searchParams }: Props) {
 
   try {
     data = await getFlujoMantenimientoData({
-      years: ["2024"],
       areas: initialArea === "all" ? [] : [initialArea],
     })
   } catch (error) {

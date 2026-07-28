@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 
 import { buildMetricasExcelContent } from "./metricas-export"
 import {
+  getMantenimientoMetricasData,
+  getMantenimientoMetricasExportRows,
   getMetricasData,
   getMetricasExportRows,
   type MetricasDatasetKey,
@@ -40,6 +42,20 @@ export async function handleMetricasRequest(
   }
 }
 
+export async function handleMantenimientoMetricasRequest(req: NextRequest) {
+  try {
+    return NextResponse.json(
+      await getMantenimientoMetricasData(getFilters(req))
+    )
+  } catch (error) {
+    console.error(error)
+    return NextResponse.json(
+      { error: "Error leyendo las metricas consolidadas de mantenimiento" },
+      { status: 500 }
+    )
+  }
+}
+
 export async function handleMetricasExportRequest(
   req: NextRequest,
   datasetKey: MetricasDatasetKey
@@ -59,6 +75,29 @@ export async function handleMetricasExportRequest(
     console.error(error)
     return NextResponse.json(
       { error: "Error exportando metricas filtradas" },
+      { status: 500 }
+    )
+  }
+}
+
+export async function handleMantenimientoMetricasExportRequest(
+  req: NextRequest
+) {
+  try {
+    const today = new Date().toISOString().slice(0, 10)
+    const rows = await getMantenimientoMetricasExportRows(getFilters(req))
+    const content = buildMetricasExcelContent(rows, "mantenimiento")
+
+    return new NextResponse(content, {
+      headers: {
+        "Content-Type": "application/vnd.ms-excel; charset=utf-8",
+        "Content-Disposition": `attachment; filename="mantenimiento-${today}.xls"`,
+      },
+    })
+  } catch (error) {
+    console.error(error)
+    return NextResponse.json(
+      { error: "Error exportando las metricas consolidadas de mantenimiento" },
       { status: 500 }
     )
   }
