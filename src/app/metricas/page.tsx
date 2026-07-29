@@ -39,7 +39,7 @@ export default function MetricasPage() {
 
           <DashboardSelector
             links={subsecretariaLinks}
-            columns={3}
+            columns={2}
             eyebrow="Subsecretarias"
             title="Seguimiento estrategico"
             description="Selecciona una subsecretaria para abrir sus tableros disponibles."

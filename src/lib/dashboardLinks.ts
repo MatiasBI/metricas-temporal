@@ -76,9 +76,6 @@ export const paisajeDashboardLinks: DashboardLink[] = [
       "Lectura ejecutiva de patrimonio, espacios verdes, mobiliario y estado de resolucion.",
     Icon: ParkOutlinedIcon,
   },
-]
-
-export const feriasDashboardLinks: DashboardLink[] = [
   {
     href: "/metricas/ferias",
     title: "Ferias",
@@ -92,7 +89,6 @@ export const feriasDashboardLinks: DashboardLink[] = [
 export const dashboardLinks: DashboardLink[] = [
   ...maintenanceDashboardLinks,
   ...paisajeDashboardLinks,
-  ...feriasDashboardLinks,
 ]
 
 export const subsecretariaLinks: DashboardLink[] = [
@@ -109,14 +105,7 @@ export const subsecretariaLinks: DashboardLink[] = [
     title: "Subsecretaria de Paisaje Urbano",
     subtitle: "",
     description:
-      "Acceso a los tableros de seguimiento de paisaje urbano.",
+      "Acceso a los tableros de seguimiento de paisaje urbano y ferias.",
     Icon: ParkOutlinedIcon,
-  },
-  {
-    href: "/metricas/ferias",
-    title: "Ferias",
-    subtitle: "",
-    description: "Acceso al tablero de seguimiento operativo de ferias.",
-    Icon: StorefrontOutlinedIcon,
   },
 ]

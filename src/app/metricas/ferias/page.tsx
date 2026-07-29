@@ -1,4 +1,5 @@
 import { getMetricasData, warmMetricasCache } from "../../../lib/metricas"
+import { paisajeDashboardLinks } from "../../../lib/dashboardLinks"
 import MetricasScreen from "../screen"
 
 export const dynamic = "force-dynamic"
@@ -21,9 +22,9 @@ export default async function FeriasPage() {
     <MetricasScreen
       data={data}
       apiPath="/api/ferias"
-      subtitle="Ferias - Seguimiento operativo"
+      subtitle="Subsecretaria de Paisaje Urbano - Ferias"
       externalUrl=""
-      showDashboardSelector={false}
+      dashboardSelectorLinks={paisajeDashboardLinks}
     />
   )
 }
