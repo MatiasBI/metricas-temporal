@@ -132,6 +132,7 @@ const GP_TO_MAINTENANCE_DATASET: Record<string, MantenimientoDatasetKey> = {
   ACC: "vias-peatonales",
   ACI: "vias-peatonales",
   ASI: "vias-peatonales",
+  AUD: "vias-peatonales",
   AYS: "vias-peatonales",
   BOM: "vias-peatonales",
   BTL: "vias-peatonales",
